@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.prod
+    container_name: shopsphere-prod
+    volumes:
+      - ./logs/nginx:/var/log/nginx
+      - ./logs/supervisor:/var/log/supervisor
+    ports:
+      - "80:80"
+    environment:
+      - SERVER_ENVIRONMENT=PRODUCT
+      - PYTHONPATH=/app
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=shopsphere
+      - MYSQL_USER=shopsphere
+      - MYSQL_PASSWORD=shopsphere123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    networks:
+      - shopsphere-prod-network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    depends_on:
+      - mysql
+      - redis
+
+  mysql:
+    image: mysql:8.0
+    container_name: shopsphere-mysql-prod
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_DATABASE=shopsphere
+      - MYSQL_USER=shopsphere
+      - MYSQL_PASSWORD=shopsphere123
+      - MYSQL_ROOT_PASSWORD=root123
+    networks:
+      - shopsphere-prod-network
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  redis:
+    image: redis:7.0-alpine
+    container_name: shopsphere-redis-prod
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - shopsphere-prod-network
+    command: redis-server --appendonly yes
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+networks:
+  shopsphere-prod-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data: 

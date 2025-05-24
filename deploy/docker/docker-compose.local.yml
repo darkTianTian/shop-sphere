@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.local
+    container_name: shopsphere-local
+    volumes:
+      - ../../app:/app/app
+      - ../../scripts:/app/scripts
+      - ./logs/nginx:/var/log/nginx
+      - ./logs/supervisor:/var/log/supervisor
+    ports:
+      - "8000:80"
+    environment:
+      - SERVER_ENVIRONMENT=LOCAL
+      - PYTHONPATH=/app
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=shopsphere
+      - MYSQL_USER=shopsphere
+      - MYSQL_PASSWORD=shopsphere123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    networks:
+      - shopsphere-local-network
+    restart: unless-stopped
+    depends_on:
+      - mysql
+      - redis
+
+  mysql:
+    image: mysql:8.0
+    container_name: shopsphere-mysql
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_DATABASE=shopsphere
+      - MYSQL_USER=shopsphere
+      - MYSQL_PASSWORD=shopsphere123
+      - MYSQL_ROOT_PASSWORD=root123
+    networks:
+      - shopsphere-local-network
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.0-alpine
+    container_name: shopsphere-redis
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - shopsphere-local-network
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+networks:
+  shopsphere-local-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data: 

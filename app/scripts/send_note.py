@@ -16,12 +16,8 @@ def setup_logger():
     
     logger.setLevel(logging.INFO)
     
-    # 确保日志目录存在
-    log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logs')
-    os.makedirs(log_dir, exist_ok=True)
-    
-    # 创建一个rotating文件处理器
-    log_file = os.path.join(log_dir, 'send_note.log')
+    # 使用supervisor配置的日志路径
+    log_file = '/var/log/supervisor/send_note_out.log'
     handler = RotatingFileHandler(
         log_file,
         maxBytes=10*1024*1024,  # 10MB
@@ -33,6 +29,11 @@ def setup_logger():
     )
     handler.setFormatter(formatter)
     logger.addHandler(handler)
+    
+    # 添加标准错误输出处理器
+    error_handler = logging.StreamHandler(sys.stderr)
+    error_handler.setFormatter(formatter)
+    logger.addHandler(error_handler)
     
     return logger
 
