@@ -3,12 +3,17 @@ import time
 import sys
 import os
 import logging
+import schedule
 from logging.handlers import RotatingFileHandler
 from datetime import datetime
 
-# 配置日志
 def setup_logger():
+    # 清理已存在的日志处理器
     logger = logging.getLogger('send_note')
+    if logger.handlers:
+        for handler in logger.handlers:
+            logger.removeHandler(handler)
+    
     logger.setLevel(logging.INFO)
     
     # 确保日志目录存在
@@ -29,24 +34,30 @@ def setup_logger():
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     
-    # 添加控制台输出
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-    
     return logger
+
+def job(logger):
+    """每分钟执行的任务"""
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    message = f"hello world at {current_time}"
+    logger.info(message)
 
 def main():
     logger = setup_logger()
     logger.info("Service started")
     
     try:
+        # 设置定时任务，每分钟整点执行
+        schedule.every().minute.at(":00").do(job, logger)
+        
+        # 等待到下一分钟的整点再开始
+        current_time = datetime.now()
+        seconds_to_wait = 60 - current_time.second
+        time.sleep(seconds_to_wait)
+        
         while True:
-            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            message = f"hello world at {current_time}"
-            print(message)  # 直接打印到控制台
-            logger.info(message)  # 同时记录到日志
-            time.sleep(60)  # 每分钟执行一次
+            schedule.run_pending()
+            time.sleep(1)
             
     except KeyboardInterrupt:
         logger.info("Service stopped by user")
