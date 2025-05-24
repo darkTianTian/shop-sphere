@@ -1,0 +1,30 @@
+FROM python:3.12-slim
+
+# Set environment variable for production
+ENV SERVER_ENVIRONMENT='PRODUCT'
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    nginx \
+    vim \
+    logrotate \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configure logrotate (default configuration will be used)
+RUN mkdir -p /var/log/nginx
+
+# Create and set working directory
+WORKDIR /app
+
+# Copy requirements file
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Expose port 80 for nginx
+EXPOSE 80
+
+# Start nginx in the foreground
+CMD ["nginx", "-g", "daemon off;"] 

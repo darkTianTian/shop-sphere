@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  app-prod:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.prod
+    container_name: shop-sphere-prod
+    ports:
+      - "8080:80"
+    volumes:
+      - ../../logs:/var/log/nginx
+      - ../../app:/app
+    environment:
+      - SERVER_ENVIRONMENT=PRODUCT
+    networks:
+      - shop-sphere-network
+
+  app-local:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.local
+    container_name: shop-sphere-local
+    ports:
+      - "8081:80"
+    volumes:
+      - ../../logs:/var/log/nginx
+      - ../../app:/app
+    environment:
+      - SERVER_ENVIRONMENT=LOCAL
+    networks:
+      - shop-sphere-network
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: shop-sphere-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - shop-sphere-network
+
+  mysql:
+    image: mysql:8.2
+    container_name: shop-sphere-mysql
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_USER=shopsphere
+      - MYSQL_PASSWORD=shopsphere
+      - MYSQL_DATABASE=shopsphere
+    command: --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+    networks:
+      - shop-sphere-network
+
+networks:
+  shop-sphere-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  mysql-data: 
