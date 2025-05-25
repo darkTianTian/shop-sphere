@@ -17,6 +17,7 @@ RUN pip install --no-cache-dir "supervisor==4.2.0" "setuptools==57.5.0" "meld3==
 # Configure logrotate and create log files with proper permissions
 RUN mkdir -p /var/log/nginx /var/log/supervisor && \
     touch /var/log/supervisor/send_note_out.log /var/log/supervisor/send_note_err.log && \
+    touch /var/log/supervisor/fetch_products_out.log /var/log/supervisor/fetch_products_err.log && \
     touch /var/log/supervisor/nginx.log /var/log/supervisor/nginx-error.log && \
     touch /var/log/supervisor/supervisord.log && \
     chmod -R 777 /var/log/supervisor /var/log/nginx
@@ -26,6 +27,7 @@ RUN mkdir -p /etc/supervisor/conf.d
 
 # Copy supervisor configuration
 COPY deploy/supervisor/send_note.conf /etc/supervisor/conf.d/
+COPY deploy/supervisor/fetch_products.conf /etc/supervisor/conf.d/
 COPY deploy/supervisor/supervisord.conf /etc/supervisor/
 
 # Create and set working directory
