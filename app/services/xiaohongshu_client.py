@@ -1,6 +1,7 @@
 import requests
 import json
 import logging
+import hashlib
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
 
@@ -49,6 +50,33 @@ class XiaohongshuClient:
             'x-t': x_t
         }
         self.session.headers.update(auth_headers)
+    
+    def get_sign(self, b: str) -> str:
+        """
+        生成签名
+        
+        Args:
+            b: 需要签名的字符串
+            
+        Returns:
+            生成的签名字符串
+        """
+        # 使用固定的测试数据（如果需要的话）
+        test_data = """1749462149435test/api/edith/product/search_item_v2{\"page_no\":1,\"page_size\":20,\"search_order\":{\"sort_field\":\"create_time\",\"order\":\"desc\"},\"search_filter\":{\"card_type\":2,\"is_channel\":false},\"search_item_detail_option\":{}}"""
+        
+        # 使用传入的参数或测试数据
+        data_to_sign = b if b else test_data
+        
+        # 计算MD5哈希 (修复了原代码中的错误)
+        b_md5 = hashlib.md5(data_to_sign.encode()).hexdigest()
+        
+        self.logger.info(f"md5====> {b_md5}")
+        
+        # TODO: 这里需要实现完整的签名算法
+        # 目前只返回MD5，实际的小红书签名算法会更复杂
+        s = b_md5
+        
+        return s
         
     def send_note(self, note_data: Dict[str, Any], custom_headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """
