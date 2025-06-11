@@ -15,7 +15,7 @@ class XiaohongshuConfig:
     API_BASE_URL: str = "https://ark.xiaohongshu.com"
     TIMEOUT: int = 30
     MAX_RETRIES: int = 3
-    USER_AGENT: str = "Mozilla/5.0 (iPhone; CPU iPhone OS 14_8 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.20(0x18001442) NetType/WIFI Language/en"
+    USER_AGENT: str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.361442) NetType/WIFI Language/en"
 
 
 class XiaohongshuClient:
@@ -47,16 +47,18 @@ class XiaohongshuClient:
             'accept-language': 'zh-CN,zh;q=0.9',
             'cache-control': 'no-cache',
             'content-type': 'application/json',
-            'origin': 'https://ark.xiaohongshu.com',
+            'origin': self.config.API_BASE_URL,
             'pragma': 'no-cache',
             'priority': 'u=1, i',
-            'referer': 'https://ark.xiaohongshu.com/',
-            'sec-ch-ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+            'referer': f'{self.config.API_BASE_URL}/app-item/list/shelf?from=ark-login',
+            'sec-ch-ua': '"Google Chrome";v="135", "Not-A.Brand";v="8", "Chromium";v="135"',
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"macOS"',
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-site'
+            'sec-fetch-site': 'same-origin',
+            'X-B3-Traceid': 'b5fe5f658f0a20bf',
+            'Authorization': 'AT-68c517512447999226252228dy4yonlxyhr1vlhj'
         }
     
     def set_auth(self, auth_config: AuthConfig):
@@ -82,7 +84,8 @@ class XiaohongshuClient:
         """
         # 构造签名字符串
         data_str = self._dict_to_escaped_str(data)
-        sign_str = f"{timestamp}{path}{data_str}"
+        g = 'test'
+        sign_str = f"{timestamp}{g}{path}{data_str}"
         
         # 计算MD5
         b_md5 = hashlib.md5(sign_str.encode()).hexdigest()
@@ -199,21 +202,44 @@ class XiaohongshuClient:
         url = f"{self.config.API_BASE_URL}{path}"
         self.logger.info(f"Making request to: {url}")
         print(f"url====> {url}")
+        print(f"data====> {data}")
+        
+        # 准备请求数据
+        if data:
+            kwargs['data'] = json.dumps(data, separators=(',', ':'))
+        
+        # 创建请求对象
+        req = requests.Request(
+            method=method,
+            url=url,
+            headers=self.session.headers,
+            **kwargs
+        )
+        
+        # 准备请求
+        prepped = self.session.prepare_request(req)
+        
+        # 确保content-type正确设置
+        if data:
+            prepped.headers['Content-Type'] = 'application/json'
+        
+        # 打印完整请求信息
+        print("Final request headers:", prepped.headers)
+        print("Final request body:", prepped.body)
         
         for attempt in range(self.config.MAX_RETRIES):
             try:
                 self.logger.info(f"Sending {method} request to {url} (attempt {attempt + 1}/{self.config.MAX_RETRIES})")
                 
-                response = self.session.request(
-                    headers=self.session.headers,
-                    method=method,
-                    url=url,
-                    json=data if data else None,
-                    timeout=self.config.TIMEOUT,
-                    **kwargs
+                # 发送准备好的请求
+                response = self.session.send(
+                    prepped,
+                    timeout=self.config.TIMEOUT
                 )
                 
                 self.logger.info(f"Response status code: {response.status_code}")
+                print("Response cookies:", dict(response.cookies))
+                print("Response headers:", dict(response.headers))
                 
                 try:
                     response_data = response.json()

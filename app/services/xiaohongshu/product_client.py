@@ -35,7 +35,7 @@ class ProductClient(XiaohongshuClient):
         Returns:
             搜索结果
         """
-        path = "/api/edith/products/search_item_v2"
+        path = "/api/edith/product/search_item_v2"
         
         # 构造请求数据
         data = {
@@ -54,9 +54,11 @@ class ProductClient(XiaohongshuClient):
         
         # 获取时间戳
         timestamp = str(int(time.time() * 1000))
+        # timestamp = '1749630098228'
         
         # 生成签名
         x_s = self.get_sign(timestamp, path, data)
+        # x_s = 'sgVJ0YZBZBaUO2F+ZBw6sY1C16d61g9Ks6spsBcWs6M3'
         
         # 设置请求头
         self.session.headers.update({
@@ -76,7 +78,7 @@ class ProductClient(XiaohongshuClient):
         Returns:
             商品详情
         """
-        path = f"/api/edith/products/item/{product_id}"
+        path = f"/api/edith/product/item/{product_id}"
         
         # 获取时间戳
         timestamp = str(int(time.time() * 1000))

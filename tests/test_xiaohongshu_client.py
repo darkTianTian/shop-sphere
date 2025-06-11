@@ -325,7 +325,7 @@ class TestProductClientIntegration(unittest.TestCase):
                 sort_field="create_time",
                 order="desc"
             )
-            
+            print("result====>", result)
             # 验证响应格式
             self.assertIsInstance(result, dict)
             self.assertIn('code', result)
