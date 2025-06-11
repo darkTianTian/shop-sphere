@@ -12,19 +12,28 @@ from ...config.auth_config import AuthConfig
 @dataclass
 class XiaohongshuConfig:
     """小红书API配置"""
-    DOMAIN = "https://ark.xiaohongshu.com"
-    API_BASE_URL: str = "https://edith.xiaohongshu.com"
-    timeout: int = 30
-    max_retries: int = 3
+    API_BASE_URL: str = "https://ark.xiaohongshu.com"
+    TIMEOUT: int = 30
+    MAX_RETRIES: int = 3
+    USER_AGENT: str = "Mozilla/5.0 (iPhone; CPU iPhone OS 14_8 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.20(0x18001442) NetType/WIFI Language/en"
 
 
 class XiaohongshuClient:
     """小红书API基础客户端，提供通用功能"""
     
     def __init__(self, config: Optional[XiaohongshuConfig] = None, logger: Optional[logging.Logger] = None):
+        """初始化客户端
+        
+        Args:
+            config: API配置，如果不提供则使用默认配置
+            logger: 日志记录器，如果不提供则使用默认记录器
+        """
         self.config = config or XiaohongshuConfig()
         self.logger = logger or logging.getLogger(__name__)
         self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': self.config.USER_AGENT
+        })
         self._init_session()
     
     def _init_session(self):
@@ -38,17 +47,16 @@ class XiaohongshuClient:
             'accept-language': 'zh-CN,zh;q=0.9',
             'cache-control': 'no-cache',
             'content-type': 'application/json',
-            'origin': self.config.DOMAIN,
+            'origin': 'https://ark.xiaohongshu.com',
             'pragma': 'no-cache',
             'priority': 'u=1, i',
-            'referer': f'{self.config.DOMAIN}/',
+            'referer': 'https://ark.xiaohongshu.com/',
             'sec-ch-ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"macOS"',
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-site',
-            'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+            'sec-fetch-site': 'same-site'
         }
     
     def set_auth(self, auth_config: AuthConfig):
@@ -61,7 +69,7 @@ class XiaohongshuClient:
         """将字典转换为带转义的字符串"""
         return json.dumps(data, ensure_ascii=True, separators=(',', ':'))
     
-    def get_sign(self, path: str, data: Dict[str, Any]) -> str:
+    def get_sign(self, timestamp: str, path: str, data: Dict[str, Any]) -> str:
         """生成签名
         
         Args:
@@ -73,16 +81,20 @@ class XiaohongshuClient:
             生成的签名字符串
         """
         # 构造签名字符串
-        timestamp = str(int(time.time() * 1000))
         data_str = self._dict_to_escaped_str(data)
         sign_str = f"{timestamp}{path}{data_str}"
-        # data_str = """1749578585081test/api/edith/product/search_item_v2{\"page_no\":1,\"page_size\":20,\"search_order\":{\"sort_field\":\"create_time\",\"order\":\"desc\"},\"search_filter\":{\"card_type\":2,\"is_channel\":false},\"search_item_detail_option\":{}}"""
-
+        
         # 计算MD5
         b_md5 = hashlib.md5(sign_str.encode()).hexdigest()
         
         # Base64字符集
         d = "A4NjFqYu5wPHsO0XTdDgMa2r1ZQocVte9UJBvk6/7=yRnhISGKblCWi+LpfE8xzm3"
+        self.logger.debug(f"Base64 charset: {d}")
+        self.logger.debug(f"MD5 hash: {b_md5}")
+        self.logger.debug(f"Sign string: {sign_str}")
+        print(f"Base64 charset: {d}")
+        print(f"MD5 hash: {b_md5}")
+        print(f"Sign string: {sign_str}")
         
         # 初始化变量
         e = b_md5
@@ -136,6 +148,8 @@ class XiaohongshuClient:
             if 'b' in locals() and b:
                 result += b
         
+        self.logger.debug(f"Generated signature: {result}")
+        print(f"Generated signature: {result}")
         return result
     
     def _get_char_code_at(self, text: str, index: int) -> int:
@@ -183,40 +197,43 @@ class XiaohongshuClient:
             requests.RequestException: 请求异常
         """
         url = f"{self.config.API_BASE_URL}{path}"
+        self.logger.info(f"Making request to: {url}")
+        print(f"url====> {url}")
         
-        for attempt in range(self.config.max_retries):
+        for attempt in range(self.config.MAX_RETRIES):
             try:
-                self.logger.info(f"发送请求 {method} {url} (尝试 {attempt + 1}/{self.config.max_retries})")
+                self.logger.info(f"Sending {method} request to {url} (attempt {attempt + 1}/{self.config.MAX_RETRIES})")
                 
                 response = self.session.request(
+                    headers=self.session.headers,
                     method=method,
                     url=url,
                     json=data if data else None,
-                    timeout=self.config.timeout,
+                    timeout=self.config.TIMEOUT,
                     **kwargs
                 )
                 
-                self.logger.info(f"响应状态码: {response.status_code}")
+                self.logger.info(f"Response status code: {response.status_code}")
                 
                 try:
                     response_data = response.json()
-                    self.logger.info(f"响应数据: {json.dumps(response_data, ensure_ascii=False, indent=2)}")
+                    self.logger.debug(f"Response data: {json.dumps(response_data, ensure_ascii=False, indent=2)}")
                     return response_data
                 except json.JSONDecodeError:
-                    self.logger.warning(f"无法解析JSON响应，原始响应: {response.text}")
+                    self.logger.warning(f"Failed to parse JSON response: {response.text}")
                     return {"raw_response": response.text, "status_code": response.status_code}
                     
             except requests.exceptions.Timeout:
-                self.logger.warning(f"请求超时 (尝试 {attempt + 1}/{self.config.max_retries})")
-                if attempt == self.config.max_retries - 1:
+                self.logger.warning(f"Request timeout (attempt {attempt + 1}/{self.config.MAX_RETRIES})")
+                if attempt == self.config.MAX_RETRIES - 1:
                     raise
                     
             except requests.exceptions.RequestException as e:
-                self.logger.error(f"请求异常 (尝试 {attempt + 1}/{self.config.max_retries}): {str(e)}")
-                if attempt == self.config.max_retries - 1:
+                self.logger.error(f"Request error (attempt {attempt + 1}/{self.config.MAX_RETRIES}): {str(e)}")
+                if attempt == self.config.MAX_RETRIES - 1:
                     raise
                     
-        raise requests.RequestException("所有重试尝试都失败了")
+        raise requests.RequestException("All retry attempts failed")
     
     def close(self):
         """关闭会话"""
