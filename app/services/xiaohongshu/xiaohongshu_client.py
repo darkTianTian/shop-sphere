@@ -3,6 +3,7 @@ import json
 import logging
 import hashlib
 import math
+import random
 import time
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
@@ -57,14 +58,14 @@ class XiaohongshuClient:
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'same-origin',
-            'X-B3-Traceid': 'b5fe5f658f0a20bf',
-            'Authorization': 'AT-68c517512447999226252228dy4yonlxyhr1vlhj'
+            'X-B3-Traceid':  ''.join(random.choices("abcdef0123456789", k=16)),
         }
     
     def set_auth(self, auth_config: AuthConfig):
         """设置认证信息"""
         self.session.headers.update({
-            'cookie': auth_config.cookie
+            'cookie': auth_config.cookie,
+            'authorization': auth_config.authorization
         })
     
     def _dict_to_escaped_str(self, data: Dict) -> str:
