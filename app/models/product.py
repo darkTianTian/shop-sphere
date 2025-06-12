@@ -1,6 +1,8 @@
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
 import json
+from datetime import datetime
+from sqlmodel import Field, SQLModel
 
 
 @dataclass
@@ -148,3 +150,26 @@ class ProductSearchRequestBuilder:
     def build(self) -> ProductSearchRequest:
         """构建请求对象"""
         return self._request 
+
+
+class Product(SQLModel, table=True):
+    """商品模型"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    product_id: str = Field(index=True)
+    title: str
+    desc: Optional[str] = None
+    price: Optional[float] = None
+    status: Optional[str] = None
+    create_time: datetime = Field(default_factory=datetime.now)
+    update_time: datetime = Field(default_factory=datetime.now)
+    
+    @classmethod
+    def from_api_response(cls, item: dict) -> "Product":
+        """从API响应创建商品实例"""
+        return cls(
+            product_id=str(item.get('id', '')),
+            title=item.get('title', ''),
+            desc=item.get('desc', ''),
+            price=float(item.get('price', 0)) if item.get('price') else None,
+            status=item.get('status', 'unknown'),
+        ) 
