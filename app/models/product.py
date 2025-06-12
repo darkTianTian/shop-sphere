@@ -1,8 +1,10 @@
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
 import json
+import time
 from datetime import datetime
 from sqlmodel import Field, SQLModel
+import sqlalchemy as sa
 
 
 @dataclass
@@ -155,21 +157,384 @@ class ProductSearchRequestBuilder:
 class Product(SQLModel, table=True):
     """商品模型"""
     id: Optional[int] = Field(default=None, primary_key=True)
-    product_id: str = Field(index=True)
-    title: str
-    desc: Optional[str] = None
-    price: Optional[float] = None
-    status: Optional[str] = None
+    item_id: str = Field(index=True)
+    item_name: str = Field()
+    desc: Optional[str] = Field(default="")
+    status: Optional[int] = Field(default=0)
+    buyable: bool = Field(default=True)
+    item_create_time: int = Field(default=0, sa_type=sa.BigInteger)
+    item_update_time: int = Field(default=0, sa_type=sa.BigInteger)
+    min_price: int = Field(default=0)
+    max_price: int = Field(default=0)
+    # images: List[dict] = Field(default=[])
+    # categories: List[dict] = Field(default=[])
+    is_auto_off_shelf: bool = Field(default=False)
+    is_education_pricing: bool = Field(default=False)
+    category_check_time: int = Field(default=0, sa_type=sa.BigInteger)
+    product_note_num: int = Field(default=0)
+    # images: List[dict] = Field(default=[])
+    on_shelf_sku_count: int = Field(default=0)
+    off_shelf_sku_count: int = Field(default=0)
+    is_channel: bool = Field(default=False)
+    category_check_status: int = Field(default=0)
+    seller_id: str = Field(default="")
+    delivery_mode: int = Field(default=0)
+    allowance_plan: bool = Field(default=False)
+    is_free_return: bool = Field(default=False)
+    xsec_token: str = Field(default="")
+    # sale_qty_info: dict = Field(default={})
+    order_note_num: int = Field(default=0)
+    deleted: bool = Field(default=False)
+    check_status: int = Field(default=0)
+    sku_count: int = Field(default=0)
+    category_id: str = Field(default="", index=True)
+    on_sale_sku_count: int = Field(default=0)
+    main_spec_id: str = Field(default="")
+    on_shelf_time: int = Field(default=0, sa_type=sa.BigInteger)
+    first_sku_id: str = Field(default="")
+    shipping_template_id: str = Field(default="")
+    # image_descriptions: List[dict] = Field(default=[])
+    item_audit_status: int = Field(default=0)
+    union_type: int = Field(default=0)
+    total_stock: int = Field(default=0)
+    expected_purchase_time: int = Field(default=0, sa_type=sa.BigInteger)
+    use_playback: int = Field(default=0)
+    sold_out_sku_count: int = Field(default=0)
+    is_o2_o: bool = Field(default=False)
+    brand_audit_result: int = Field(default=0)
+    item_name_with_brand_name: str = Field(default="")
+    is_item_attend_promotion: bool = Field(default=False)
+    is_genuine_guarantee: bool = Field(default=False)
+    item_audit_time: int = Field(default=0, sa_type=sa.BigInteger)
+    auto_off_shelf_time: int = Field(default=0, sa_type=sa.BigInteger)
+    need_qic: bool = Field(default=False)
+    category_audit_result: int = Field(default=0)
+    stock_type: int = Field(default=0)
+    min_membership_price: int = Field(default=0)
+    o2o_show_shop_address: bool = Field(default=False)
+    contains_multi_package: bool = Field(default=False)
+    contains_gift: bool = Field(default=False)
+    is_boutique: bool = Field(default=False)
+    # faqs: List[dict] = Field(default=[])
+    is_nft: bool = Field(default=False)
+    item_auditing_time: int = Field(default=0, sa_type=sa.BigInteger)
+    create_at: int = Field(default_factory=lambda: int(time.time()))
+    update_at: int = Field(default_factory=lambda: int(time.time()))
     create_time: datetime = Field(default_factory=datetime.now)
     update_time: datetime = Field(default_factory=datetime.now)
     
     @classmethod
     def from_api_response(cls, item: dict) -> "Product":
         """从API响应创建商品实例"""
+        """{
+                "description": "",
+                "buyable": true,
+                "item_punish_result": 1,
+                "first_buyable_sku_id": "68307e5ab6240c0015112434",
+                "item_freeze": false,
+                "update_time": 1748009341000,
+                "diagnosisInfo": {
+                    "status": 2,
+                    "diagnosisIssues": [
+                        {
+                            "key": "withoutSpecImage",
+                            "desc": "缺少规格大图"
+                        }
+                    ],
+                    "hint": "影响: 流量分发、商品详情转化"
+                },
+                "is_auto_off_shelf": false,
+                "min_price": 900,
+                "is_education_pricing": false,
+                "category_check_time": 1748009338091,
+                "product_note_num": 0,
+                "images": [
+                    {
+                        "material_id": "6268386b-0541-4579-b6f4-456e3b4284ee",
+                        "path": "material_space/6268386b-0541-4579-b6f4-456e3b4284ee",
+                        "extension": ".jpeg",
+                        "width": 800,
+                        "height": 800,
+                        "link": "https://qimg.xiaohongshu.com/material_space/6268386b-0541-4579-b6f4-456e3b4284ee",
+                        "size": 0
+                    },
+                    {
+                        "material_id": "5313ba44-efcc-4212-b192-f13c8cc19dde",
+                        "path": "material_space/5313ba44-efcc-4212-b192-f13c8cc19dde",
+                        "extension": ".jpeg",
+                        "width": 800,
+                        "height": 800,
+                        "link": "https://qimg.xiaohongshu.com/material_space/5313ba44-efcc-4212-b192-f13c8cc19dde",
+                        "size": 0
+                    },
+                    {
+                        "height": 800,
+                        "link": "https://qimg.xiaohongshu.com/material_space/f9f8562d-ae78-4f7b-b5fd-1f08da2b4575",
+                        "size": 0,
+                        "material_id": "f9f8562d-ae78-4f7b-b5fd-1f08da2b4575",
+                        "path": "material_space/f9f8562d-ae78-4f7b-b5fd-1f08da2b4575",
+                        "extension": ".jpeg",
+                        "width": 800
+                    },
+                    {
+                        "size": 0,
+                        "material_id": "9253dbd5-fea7-41a3-ad40-d25ea8ee0fcc",
+                        "path": "material_space/9253dbd5-fea7-41a3-ad40-d25ea8ee0fcc",
+                        "extension": ".jpeg",
+                        "width": 800,
+                        "height": 800,
+                        "link": "https://qimg.xiaohongshu.com/material_space/9253dbd5-fea7-41a3-ad40-d25ea8ee0fcc"
+                    },
+                    {
+                        "width": 800,
+                        "height": 800,
+                        "link": "https://qimg.xiaohongshu.com/material_space/42325a3c-1034-4c4b-8874-fe2e4f99adad",
+                        "size": 0,
+                        "material_id": "42325a3c-1034-4c4b-8874-fe2e4f99adad",
+                        "path": "material_space/42325a3c-1034-4c4b-8874-fe2e4f99adad",
+                        "extension": ".jpeg"
+                    }
+                ],
+                "item_name": "宠物梳子猫咪梳毛神器宠物开结梳浮毛梳狗狗按摩除毛梳宠物用品",
+                "on_shelf_sku_count": 8,
+                "is_channel": false,
+                "category_check_status": 1,
+                "is_item_attend_activity": false,
+                "cross_border_status": true,
+                "seller_id": "67504cbd8e2c970015e02516",
+                "delivery_mode": 0,
+                "allowance_plan": false,
+                "create_time": 1748008536000,
+                "shipping_gross_weight": 1000,
+                "off_shelf_sku_count": 0,
+                "is_general_settings": {
+                    "shippingFeeMode": false,
+                    "imagesDesc": true,
+                    "logisticsPlanId": false,
+                    "imagesDescV2": false,
+                    "deliveryTime": false,
+                    "imageBindSpu": true,
+                    "whcode": false
+                },
+                "attributes": [],
+                "main_spec_enable": 0,
+                "config_size_table_info": [],
+                "categories": [
+                    {
+                        "id": "65f994ca3e946300016aeef1",
+                        "name": "宠物/宠物食品及用品",
+                        "ename": "",
+                        "level": 1,
+                        "parent_id": "",
+                        "is_leaf": false,
+                        "category_type": 1
+                    },
+                    {
+                        "name": "猫/狗美容护理工具",
+                        "ename": "",
+                        "level": 2,
+                        "parent_id": "65f994ca3e946300016aeef1",
+                        "is_leaf": false,
+                        "category_type": 1,
+                        "id": "65f994ce3e946300016aef5d"
+                    },
+                    {
+                        "parent_id": "65f994ce3e946300016aef5d",
+                        "is_leaf": true,
+                        "category_type": 1,
+                        "id": "65f994ce3e946300016aef63",
+                        "name": "猫狗梳子/排梳",
+                        "ename": "",
+                        "level": 3
+                    }
+                ],
+                "max_membership_price": 0,
+                "is_item_attend_promotion": false,
+                "is_free_return": true,
+                "max_price": 1800,
+                "variant_ids": [
+                    "5a60c42f69bd891ed8939bc2",
+                    "60404e0de85df80001991224"
+                ],
+                "size_table_type": 1,
+                "xsec_token": "ABkUpm3nkTAuHqHpC6EckIynfr9dRbr1WBpHZ4k7_siK4=",
+                "sale_qty_info": {
+                    "acc_sale_qty": 0,
+                    "sale_qty30": 0,
+                    "sale_qty_update_time": 1749686400470
+                },
+                "enable_multi_warehouse": false,
+                "free_return": 1,
+                "order_note_num": 0,
+                "deleted": false,
+                "is_boutique": false,
+                "faqs": [],
+                "is_nft": false,
+                "item_auditing_time": 1748008549576,
+                "auto_off_shelf_time": 0,
+                "need_qic": false,
+                "category_audit_result": 1,
+                "check_status": 1,
+                "stock_type": 1,
+                "min_membership_price": 0,
+                "o2o_show_shop_address": false,
+                "sku_count": 8,
+                "is_genuine_guarantee": false,
+                "item_audit_time": 1748008668151,
+                "contains_multi_package": false,
+                "category_id": "65f994ce3e946300016aef63",
+                "contains_gift": false,
+                "on_sale_sku_count": 8,
+                "main_spec_id": "60404e0de85df80001991224",
+                "size_table_params": [],
+                "on_shelf_time": 1748008670000,
+                "first_sku_id": "68307e5ab6240c0015112434",
+                "item_id": "68307e58e0db0d0015a4467b",
+                "shipping_template_id": "675051beaa3e340001000b56",
+                "image_descriptions": [
+                    {
+                        "extension": ".jpeg",
+                        "width": 790,
+                        "height": 1000,
+                        "link": "https://qimg.xiaohongshu.com/material_space/83a4cf81-a8e4-41be-864c-fd5772518869",
+                        "size": 0,
+                        "material_id": "83a4cf81-a8e4-41be-864c-fd5772518869",
+                        "path": "material_space/83a4cf81-a8e4-41be-864c-fd5772518869"
+                    },
+                    {
+                        "link": "https://qimg.xiaohongshu.com/material_space/aa4ae7fa-7870-487c-8239-7ea7391213f7",
+                        "size": 0,
+                        "material_id": "aa4ae7fa-7870-487c-8239-7ea7391213f7",
+                        "path": "material_space/aa4ae7fa-7870-487c-8239-7ea7391213f7",
+                        "extension": ".jpeg",
+                        "width": 790,
+                        "height": 1000
+                    },
+                    {
+                        "size": 0,
+                        "material_id": "0af98232-cfee-4557-81fb-e8961edbfeaf",
+                        "path": "material_space/0af98232-cfee-4557-81fb-e8961edbfeaf",
+                        "extension": ".jpeg",
+                        "width": 790,
+                        "height": 1000,
+                        "link": "https://qimg.xiaohongshu.com/material_space/0af98232-cfee-4557-81fb-e8961edbfeaf"
+                    },
+                    {
+                        "path": "material_space/28ebc36c-a224-4a40-90a3-66edb194678c",
+                        "extension": ".jpeg",
+                        "width": 790,
+                        "height": 1000,
+                        "link": "https://qimg.xiaohongshu.com/material_space/28ebc36c-a224-4a40-90a3-66edb194678c",
+                        "size": 0,
+                        "material_id": "28ebc36c-a224-4a40-90a3-66edb194678c"
+                    },
+                    {
+                        "height": 1000,
+                        "link": "https://qimg.xiaohongshu.com/material_space/e9d5d649-60d5-4535-b57e-32ab8a2f88fa",
+                        "size": 0,
+                        "material_id": "e9d5d649-60d5-4535-b57e-32ab8a2f88fa",
+                        "path": "material_space/e9d5d649-60d5-4535-b57e-32ab8a2f88fa",
+                        "extension": ".jpeg",
+                        "width": 790
+                    },
+                    {
+                        "width": 790,
+                        "height": 1000,
+                        "link": "https://qimg.xiaohongshu.com/material_space/b878b9dd-da31-4dc4-b629-f67bce267154",
+                        "size": 0,
+                        "material_id": "b878b9dd-da31-4dc4-b629-f67bce267154",
+                        "path": "material_space/b878b9dd-da31-4dc4-b629-f67bce267154",
+                        "extension": ".jpeg"
+                    },
+                    {
+                        "size": 0,
+                        "material_id": "e3d7e565-1194-4f12-9efb-75c7059cc74e",
+                        "path": "material_space/e3d7e565-1194-4f12-9efb-75c7059cc74e",
+                        "extension": ".jpeg",
+                        "width": 790,
+                        "height": 1000,
+                        "link": "https://qimg.xiaohongshu.com/material_space/e3d7e565-1194-4f12-9efb-75c7059cc74e"
+                    },
+                    {
+                        "path": "material_space/7ed0ba28-39ff-4a34-9972-9d7a26ec55f7",
+                        "extension": ".jpeg",
+                        "width": 790,
+                        "height": 1250,
+                        "link": "https://qimg.xiaohongshu.com/material_space/7ed0ba28-39ff-4a34-9972-9d7a26ec55f7",
+                        "size": 0,
+                        "material_id": "7ed0ba28-39ff-4a34-9972-9d7a26ec55f7"
+                    }
+                ],
+                "item_audit_status": 2,
+                "union_type": 0,
+                "total_stock": 65589,
+                "expected_purchase_time": 0,
+                "use_playback": 0,
+                "sold_out_sku_count": 0,
+                "is_o2_o": false,
+                "brand_audit_result": 1,
+                "item_name_with_brand_name": "宠物梳子猫咪梳毛神器宠物开结梳浮毛梳狗狗按摩除毛梳宠物用品"
+            }"""
         return cls(
-            product_id=str(item.get('id', '')),
-            title=item.get('title', ''),
-            desc=item.get('desc', ''),
-            price=float(item.get('price', 0)) if item.get('price') else None,
-            status=item.get('status', 'unknown'),
+            item_id=item.get('item_id', ''),
+            item_name=item.get('item_name', ''),
+            desc=item.get('description', ''),
+            status=item.get('status', 0),
+            buyable=item.get('buyable', True),
+            item_create_time=item.get('create_time', 0),
+            item_update_time=item.get('update_time', 0),
+            min_price=item.get('min_price', 0),
+            max_price=item.get('max_price', 0),
+            images=item.get('images', []),
+            categories=item.get('categories', []),
+            is_auto_off_shelf=item.get('is_auto_off_shelf', False),
+            is_education_pricing=item.get('is_education_pricing', False),
+            product_note_num=item.get('product_note_num', 0),
+            on_shelf_sku_count=item.get('on_shelf_sku_count', 0),
+            is_channel=item.get('is_channel', False),
+            category_check_status=item.get('category_check_status', 0),
+            category_check_time=item.get('category_check_time', 0),
+            seller_id=item.get('seller_id', ''),
+            delivery_mode=item.get('delivery_mode', 0),
+            allowance_plan=item.get('allowance_plan', False),
+            is_free_return=item.get('is_free_return', False),
+            xsec_token=item.get('xsec_token', ''),
+            sale_qty_info=item.get('sale_qty_info', {}),
+            order_note_num=item.get('order_note_num', 0),
+            deleted=item.get('deleted', False),
+            check_status=item.get('check_status', 0),
+            sku_count=item.get('sku_count', 0),
+            category_id=item.get('category_id', ''),
+            on_sale_sku_count=item.get('on_sale_sku_count', 0),
+            main_spec_id=item.get('main_spec_id', ''),
+            on_shelf_time=item.get('on_shelf_time', 0),
+            first_sku_id=item.get('first_sku_id', ''),
+            shipping_template_id=item.get('shipping_template_id', ''),
+            image_descriptions=item.get('image_descriptions', []),
+            item_audit_status=item.get('item_audit_status', 0),
+            union_type=item.get('union_type', 0),
+            total_stock=item.get('total_stock', 0),
+            expected_purchase_time=item.get('expected_purchase_time', 0),
+            use_playback=item.get('use_playback', 0),
+            sold_out_sku_count=item.get('sold_out_sku_count', 0),
+            is_o2_o=item.get('is_o2_o', False),
+            brand_audit_result=item.get('brand_audit_result', 0),
+            item_name_with_brand_name=item.get('item_name_with_brand_name', ''),
+            is_item_attend_promotion=item.get('is_item_attend_promotion', False),
+            is_genuine_guarantee=item.get('is_genuine_guarantee', False),
+            item_audit_time=item.get('item_audit_time', 0),
+            auto_off_shelf_time=item.get('auto_off_shelf_time', 0),
+            need_qic=item.get('need_qic', False),
+            category_audit_result=item.get('category_audit_result', 0),
+            stock_type=item.get('stock_type', 0),
+            min_membership_price=item.get('min_membership_price', 0),
+            o2o_show_shop_address=item.get('o2o_show_shop_address', False),
+            contains_multi_package=item.get('contains_multi_package', False),
+            contains_gift=item.get('contains_gift', False),
+            is_boutique=item.get('is_boutique', False),
+            faqs=item.get('faqs', []),
+            is_nft=item.get('is_nft', False),
+            item_auditing_time=item.get('item_auditing_time', 0),
+            create_time=datetime.fromtimestamp(item.get('create_time', int(time.time() * 1000)) // 1000),  # Convert milliseconds to seconds
+            update_time=datetime.fromtimestamp(item.get('update_time', int(time.time() * 1000)) // 1000),  # Convert milliseconds to seconds
         ) 

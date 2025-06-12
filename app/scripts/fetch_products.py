@@ -72,21 +72,21 @@ def save_result(result: dict, logger):
         with Session(engine) as session:
             for product in products_to_save:
                 # 检查是否已存在
-                stmt = select(Product).where(Product.product_id == product.product_id)
+                stmt = select(Product).where(Product.item_id == product.item_id)
                 existing_product = session.exec(stmt).first()
                 
                 if existing_product:
                     # 更新现有记录
-                    existing_product.title = product.title
+                    existing_product.item_name = product.item_name
                     existing_product.desc = product.desc
-                    existing_product.price = product.price
-                    existing_product.status = product.status
+                    existing_product.min_price = product.min_price
+                    existing_product.max_price = product.max_price
                     existing_product.update_time = datetime.now()
-                    logger.info(f"更新商品: {product.product_id}")
+                    logger.info(f"更新商品: {product.item_id}")
                 else:
                     # 添加新记录
                     session.add(product)
-                    logger.info(f"新增商品: {product.product_id}")
+                    logger.info(f"新增商品: {product.item_id}")
             
             session.commit()
             
@@ -190,9 +190,9 @@ def main():
         )
         
         # 添加每分钟执行的任务
-        scheduler.add_minute_task(fetch_products_task, product_service, logger)
+        scheduler.add_hourly_task(fetch_products_task, 0, product_service, logger)
         
-        logger.info("已添加每分钟获取商品列表的定时任务")
+        logger.info("已添加每小时获取商品列表的定时任务")
         
         # 启动调度器
         scheduler.start()
