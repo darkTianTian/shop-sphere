@@ -1,6 +1,6 @@
 import time
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Callable, Optional
 import pytz
 from schedule import Scheduler
@@ -15,41 +15,64 @@ class TaskScheduler:
         self.scheduler = Scheduler()
         self._running = False
         
+    def _log_next_execution(self, job):
+        """记录下次执行时间"""
+        if job.next_run:
+            current_time = datetime.now(self.timezone)
+            
+            # 根据任务间隔计算下次执行时间
+            if job.unit == 'minutes':
+                next_run = current_time.replace(second=0, microsecond=0) + timedelta(minutes=job.interval)
+            elif job.unit == 'hours':
+                next_run = current_time.replace(minute=0, second=0, microsecond=0) + timedelta(hours=job.interval)
+            elif job.unit == 'days':
+                next_run = current_time.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=job.interval)
+            else:
+                return
+                
+            self.logger.info(f"⏰ 下次执行时间: {next_run.strftime('%Y-%m-%d %H:%M:%S')}")
+        
     def add_minute_task(self, task_func: Callable, *args, **kwargs):
         """添加每分钟执行的任务"""
         def wrapped_task():
             try:
-                current_time = datetime.now(self.timezone).strftime("%Y-%m-%d %H:%M:%S")
-                self.logger.info(f"执行定时任务 at {current_time}")
+                current_time = datetime.now(self.timezone)
+                self.logger.info(f"执行定时任务 at {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
                 task_func(*args, **kwargs)
+                # 记录下次执行时间
+                self._log_next_execution(job)
             except Exception as e:
                 self.logger.error(f"任务执行失败: {str(e)}")
                 
-        self.scheduler.every().minute.at(":00").do(wrapped_task)
+        job = self.scheduler.every().minute.at(":00").do(wrapped_task)
         
     def add_hourly_task(self, task_func: Callable, minute: int = 0, *args, **kwargs):
         """添加每小时执行的任务"""
         def wrapped_task():
             try:
-                current_time = datetime.now(self.timezone).strftime("%Y-%m-%d %H:%M:%S")
-                self.logger.info(f"执行小时任务 at {current_time}")
+                current_time = datetime.now(self.timezone)
+                self.logger.info(f"执行小时任务 at {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
                 task_func(*args, **kwargs)
+                # 记录下次执行时间
+                self._log_next_execution(job)
             except Exception as e:
                 self.logger.error(f"任务执行失败: {str(e)}")
                 
-        self.scheduler.every().hour.at(f":{minute:02d}").do(wrapped_task)
+        job = self.scheduler.every().hour.at(f":{minute:02d}").do(wrapped_task)
         
     def add_daily_task(self, task_func: Callable, time_str: str = "00:00", *args, **kwargs):
         """添加每日执行的任务"""
         def wrapped_task():
             try:
-                current_time = datetime.now(self.timezone).strftime("%Y-%m-%d %H:%M:%S")
-                self.logger.info(f"执行日常任务 at {current_time}")
+                current_time = datetime.now(self.timezone)
+                self.logger.info(f"执行日常任务 at {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
                 task_func(*args, **kwargs)
+                # 记录下次执行时间
+                self._log_next_execution(job)
             except Exception as e:
                 self.logger.error(f"任务执行失败: {str(e)}")
                 
-        self.scheduler.every().day.at(time_str).do(wrapped_task)
+        job = self.scheduler.every().day.at(time_str).do(wrapped_task)
         
     def wait_for_next_minute(self):
         """等待到下一分钟的整点"""
