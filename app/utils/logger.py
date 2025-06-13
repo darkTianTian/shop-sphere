@@ -29,7 +29,7 @@ def setup_logger(
         logger.handlers.clear()
 
     formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
     )
 
     if log_file:
