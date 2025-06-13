@@ -8,12 +8,9 @@ import traceback
 
 # 设置基本的错误日志
 import logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler()]
-)
 base_logger = logging.getLogger('fetch_products')
+base_logger.setLevel(logging.INFO)
+base_logger.propagate = False  # 防止日志传播到父logger
 
 # 获取环境信息
 SERVER_ENV = os.environ.get('SERVER_ENVIRONMENT', 'LOCAL')
@@ -159,6 +156,7 @@ def main():
             level=20,  # logging.INFO
             log_to_stderr=False  # 修改这里，因为supervisor已经处理了日志重定向
         )
+        logger.propagate = False  # 防止日志传播到父logger
         logger.info("Logger setup completed")
     except Exception as e:
         error_msg = f"设置日志失败: {str(e)}\n{traceback.format_exc()}"
@@ -190,7 +188,9 @@ def main():
         )
         
         # 添加每分钟执行的任务
-        scheduler.add_hourly_task(fetch_products_task, 0, product_service, logger)
+        scheduler.add_minute_task(fetch_products_task, product_service, logger)
+        # scheduler.add_hourly_task(fetch_products_task, 0, product_service, logger)
+
         
         logger.info("已添加每小时获取商品列表的定时任务")
         

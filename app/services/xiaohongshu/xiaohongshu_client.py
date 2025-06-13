@@ -17,6 +17,9 @@ class XiaohongshuConfig:
     TIMEOUT: int = 30
     MAX_RETRIES: int = 3
     USER_AGENT: str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.361442) NetType/WIFI Language/en"
+    MIN_REQUEST_INTERVAL: float = 2.0  # 最小请求间隔（秒）
+    MAX_REQUEST_INTERVAL: float = 5.0  # 最大请求间隔（秒）
+    LAST_REQUEST_TIME: float = 0.0     # 上次请求时间
 
 
 class XiaohongshuClient:
@@ -200,6 +203,19 @@ class XiaohongshuClient:
         Raises:
             requests.RequestException: 请求异常
         """
+        # 添加请求间隔
+        current_time = time.time()
+        time_since_last_request = current_time - self.config.LAST_REQUEST_TIME
+        if time_since_last_request < self.config.MIN_REQUEST_INTERVAL:
+            sleep_time = random.uniform(
+                self.config.MIN_REQUEST_INTERVAL - time_since_last_request,
+                self.config.MAX_REQUEST_INTERVAL - time_since_last_request
+            )
+            self.logger.info(f"Rate limiting: sleeping for {sleep_time:.2f} seconds")
+            time.sleep(sleep_time)
+        
+        self.config.LAST_REQUEST_TIME = time.time()
+        
         url = f"{self.config.API_BASE_URL}{path}"
         self.logger.info(f"Making request to: {url}")
         print(f"url====> {url}")
@@ -224,9 +240,8 @@ class XiaohongshuClient:
         if data:
             prepped.headers['Content-Type'] = 'application/json'
         
-        # 打印完整请求信息
-        print("Final request headers:", prepped.headers)
-        print("Final request body:", prepped.body)
+        # 添加随机延迟
+        time.sleep(random.uniform(0.5, 1.5))
         
         for attempt in range(self.config.MAX_RETRIES):
             try:
