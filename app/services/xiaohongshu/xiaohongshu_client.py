@@ -198,7 +198,7 @@ class XiaohongshuClient:
         self.set_sign(path, data)
         self.set_auth(AuthConfig.from_env())
     
-    def _make_request(self, method: str, path: str, data: Optional[Dict] = None, **kwargs) -> Dict[str, Any]:
+    def _make_request(self, method: str, path: str, api_base_url: str = "", data: Optional[Dict] = None, **kwargs) -> Dict[str, Any]:
         """发送HTTP请求
         
         Args:
@@ -226,8 +226,10 @@ class XiaohongshuClient:
             time.sleep(sleep_time)
         
         self.config.LAST_REQUEST_TIME = time.time()
-        
-        url = f"{self.config.API_BASE_URL}{path}"
+        if api_base_url:
+            url = f"{api_base_url}{path}"
+        else:
+            url = f"{self.config.API_BASE_URL}{path}"
         self.logger.info(f"Making request to: {url}")
         print(f"url====> {url}")
         print(f"data====> {data}")
