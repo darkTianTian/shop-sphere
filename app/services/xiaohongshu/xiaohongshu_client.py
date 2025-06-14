@@ -188,6 +188,16 @@ class XiaohongshuClient:
             pass
         return result
     
+    def set_sign(self, path: str, data: Dict[str, Any]):
+        """设置签名"""
+        timestamp = str(int(time.time() * 1000))
+        self.session.headers['x-s'] = self.get_sign(timestamp, path, data)
+        self.session.headers['x-t'] = timestamp
+
+    def _prepare_request(self, path: str, data: Optional[Dict] = None, **kwargs):
+        self.set_sign(path, data)
+        self.set_auth(AuthConfig.from_env())
+    
     def _make_request(self, method: str, path: str, data: Optional[Dict] = None, **kwargs) -> Dict[str, Any]:
         """发送HTTP请求
         
@@ -203,6 +213,7 @@ class XiaohongshuClient:
         Raises:
             requests.RequestException: 请求异常
         """
+        self._prepare_request(path, data, **kwargs)
         # 添加请求间隔
         current_time = time.time()
         time_since_last_request = current_time - self.config.LAST_REQUEST_TIME

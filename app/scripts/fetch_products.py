@@ -3,6 +3,7 @@ import sys
 import os
 from datetime import datetime
 import pytz
+import random
 from sqlmodel import Session, select
 import traceback
 
@@ -168,17 +169,6 @@ def main():
     # 初始化商品服务
     product_service = ProductClient(logger=logger)
     
-    # 设置认证信息
-    try:
-        # 获取认证配置
-        auth_config = AuthConfig.get_default()
-        product_service.set_auth(auth_config)
-        logger.info("商品API认证配置设置完成")
-        
-    except Exception as e:
-        error_msg = f"设置商品API认证配置失败: {str(e)}\n{traceback.format_exc()}"
-        logger.error(error_msg)
-        sys.exit(1)
     
     # 创建任务调度器
     try:
@@ -188,8 +178,8 @@ def main():
         )
         
         # 添加每分钟执行的任务
-        scheduler.add_minute_task(fetch_products_task, product_service, logger)
-        # scheduler.add_hourly_task(fetch_products_task, 0, product_service, logger)
+        # scheduler.add_minute_task(fetch_products_task, product_service, logger)
+        scheduler.add_hourly_task(fetch_products_task, random.randint(0, 15), product_service, logger)
 
         
         logger.info("已添加每小时获取商品列表的定时任务")

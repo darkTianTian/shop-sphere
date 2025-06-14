@@ -17,7 +17,7 @@ class AuthConfig:
         
         if cookie and authorization:
             return cls(cookie=cookie, authorization=authorization)
-        return None
+        return cls.get_default()
     
     @classmethod
     def get_default(cls) -> 'AuthConfig':

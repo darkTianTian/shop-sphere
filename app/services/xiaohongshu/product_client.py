@@ -52,20 +52,6 @@ class ProductClient(XiaohongshuClient):
             "search_item_detail_option": {}
         }
         
-        # 获取时间戳
-        timestamp = str(int(time.time() * 1000))
-        # timestamp = '1749630098228'
-        
-        # 生成签名
-        x_s = self.get_sign(timestamp, path, data)
-        # x_s = 'sgVJ0YZBZBaUO2F+ZBw6sY1C16d61g9Ks6spsBcWs6M3'
-        
-        # 设置请求头
-        self.session.headers.update({
-            'x-s': x_s,
-            'x-t': timestamp
-        })
-        
         # 发送请求
         return self._make_request('POST', path, data)
     
