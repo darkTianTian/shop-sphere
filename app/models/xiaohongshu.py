@@ -1,7 +1,7 @@
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, asdict
 import json
-
+from app.models.video import Video
 
 @dataclass
 class HashTag:
@@ -206,9 +206,69 @@ class XiaohongshuNoteBuilder:
         self._note_data['common']['hash_tag'].append(hashtag)
         return self
     
-    def set_video_info(self, video_data: Dict[str, Any]):
+    def set_video_info(self, video: Video):
         """设置视频信息"""
-        self._note_data['video_info'] = video_data
+        # 设置视频信息
+        video_metadata = {
+            "video": {
+                "bitrate": video.bitrate,
+                "colour_primaries": video.colour_primaries,
+                "duration": video.duration,
+                "format": video.format,
+                "frame_rate": video.frame_rate,
+                "height": video.height,
+                "matrix_coefficients": video.matrix_coefficients,
+                "rotation": video.rotation,
+                "transfer_characteristics": video.transfer_characteristics,
+                "width": video.width
+            },
+            "audio": {
+                "bitrate": video.audio_bitrate,
+                "channels": video.audio_channels,
+                "duration": video.audio_duration,
+                "format": video.audio_format,
+                "sampling_rate": video.audio_sampling_rate
+            }
+        }
+        video_info = {
+            "fileid": video.file_id,
+            "file_id": video.file_id,
+            "format_width": video.width,
+            "format_height": video.height,
+            "video_preview_type": "full_vertical_screen",
+            "composite_metadata": video_metadata,
+            "timelines": [],
+            "cover": {
+                "fileid": video.cover_file_id,
+                "file_id": video.cover_file_id,
+                "height": video.cover_height,
+                "width": video.cover_width,
+                "frame": {
+                    "ts": 0,                    # 时间戳：第0秒作为封面
+                    "is_user_select": False,    # 是否用户选择：系统自动选择
+                    "is_upload": False          # 是否上传的封面：系统生成
+                }
+            },
+            "chapters": [],
+            "chapter_sync_text": False,
+            "segments": {
+                "count": 1,
+                "need_slice": False,
+                "items": [
+                    {
+                        "mute": 0,
+                        "speed": 1,
+                        "start": 0,
+                        "duration": float(video.duration) / 1000,
+                        "transcoded": 0,
+                        "media_source": 1,
+                        "original_metadata": video_metadata
+                    }
+                ]
+            },
+            "entrance": "web"
+        }
+        self._note_data['video_info'] = video_info
         return self
     
     def add_biz_relation(self, biz_type: str, biz_id: str, extra_info: str):

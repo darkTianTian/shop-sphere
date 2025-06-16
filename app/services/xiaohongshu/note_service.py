@@ -5,7 +5,7 @@ import pytz
 import json
 from sqlmodel import select, Session
 from app.internal.db import engine
-
+from app.models.video import Video
 
 from app.services.xiaohongshu.xiaohongshu_client import XiaohongshuClient, XiaohongshuConfig
 from app.models.xiaohongshu import XiaohongshuNoteBuilder
@@ -101,86 +101,18 @@ class NoteService:
             extra_info=json.dumps(extra_info)
         )
         
-        # 设置视频信息
-        video_info = {
-            "fileid": "spectrum/wqUwPjW8yPnnPN4jaxy92x9WGKLRqvhX2HVsNu2nv2y8Icw",
-            "file_id": "spectrum/wqUwPjW8yPnnPN4jaxy92x9WGKLRqvhX2HVsNu2nv2y8Icw",
-            "format_width": 1080,
-            "format_height": 1920,
-            "video_preview_type": "full_vertical_screen",
-            "composite_metadata": {
-                "video": {
-                    "bitrate": 11455306,
-                    "colour_primaries": "BT.709",
-                    "duration": 22867,
-                    "format": "AVC",
-                    "frame_rate": 30,
-                    "height": 1920,
-                    "matrix_coefficients": "BT.709",
-                    "rotation": 0,
-                    "transfer_characteristics": "BT.709",
-                    "width": 1080
-                },
-                "audio": {
-                    "bitrate": 93918,
-                    "channels": 2,
-                    "duration": 22848,
-                    "format": "AAC",
-                    "sampling_rate": 44100
-                }
-            },
-            "timelines": [],
-            "cover": {
-                "fileid": "110/0/01e75947f42c0c3000100000000193b4c12534_0.jpg",
-                "file_id": "110/0/01e75947f42c0c3000100000000193b4c12534_0.jpg",
-                "height": 1920,
-                "width": 1080,
-                "frame": {
-                    "ts": 0,
-                    "is_user_select": False,
-                    "is_upload": False
-                }
-            },
-            "chapters": [],
-            "chapter_sync_text": False,
-            "segments": {
-                "count": 1,
-                "need_slice": False,
-                "items": [
-                    {
-                        "mute": 0,
-                        "speed": 1,
-                        "start": 0,
-                        "duration": 22.867,
-                        "transcoded": 0,
-                        "media_source": 1,
-                        "original_metadata": {
-                            "video": {
-                                "bitrate": 11455306,
-                                "colour_primaries": "BT.709",
-                                "duration": 22867,
-                                "format": "AVC",
-                                "frame_rate": 30,
-                                "height": 1920,
-                                "matrix_coefficients": "BT.709",
-                                "rotation": 0,
-                                "transfer_characteristics": "BT.709",
-                                "width": 1080
-                            },
-                            "audio": {
-                                "bitrate": 93918,
-                                "channels": 2,
-                                "duration": 22848,
-                                "format": "AAC",
-                                "sampling_rate": 44100
-                            }
-                        }
-                    }
-                ]
-            },
-            "entrance": "web"
-        }
-        builder.set_video_info(video_info)
+        # 获取视频信息
+        with Session(engine) as session:
+            video = session.exec(
+                select(Video).where(Video.sku_id == goods_id)
+            ).first()
+            self.logger.info(f"视频信息: {video}")    
+            if not video:
+                self.logger.error(f"没有找到可用视频: {goods_id}")
+                return {}
+        
+        
+        builder.set_video_info(video)
         
         note_data = builder.build()
             
