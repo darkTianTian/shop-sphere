@@ -48,8 +48,10 @@ def send_note_task(note_service: NoteService, logger):
         message = f"[{SERVER_ENV}] 开始发送笔记任务 at {current_time}"
         logger.info(message)
         
+        # 获取商品ID
+        goods_id = "6751b6543940240001f77911"
         # 发送笔记
-        response = note_service.send_note()
+        response = note_service.send_note(goods_id)
         
         # 打印结果摘要
         logger.info("\n=== 发送结果 ===")

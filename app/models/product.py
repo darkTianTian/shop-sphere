@@ -3,8 +3,9 @@ from dataclasses import dataclass
 import json
 import time
 from datetime import datetime
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, SQLModel, Enum as SQLEnum
 import sqlalchemy as sa
+from enum import Enum, auto
 
 
 @dataclass
@@ -168,9 +169,9 @@ class Product(SQLModel, table=True):
     max_price: int = Field(default=0)
     # images: List[dict] = Field(default=[])
     # categories: List[dict] = Field(default=[])
-    is_auto_off_shelf: bool = Field(default=False)
-    is_education_pricing: bool = Field(default=False)
-    category_check_time: int = Field(default=0, sa_type=sa.BigInteger)
+    # is_auto_off_shelf: bool = Field(default=False)
+    # is_education_pricing: bool = Field(default=False)
+    # category_check_time: int = Field(default=0, sa_type=sa.BigInteger)
     product_note_num: int = Field(default=0)
     # images: List[dict] = Field(default=[])
     on_shelf_sku_count: int = Field(default=0)
@@ -179,7 +180,7 @@ class Product(SQLModel, table=True):
     category_check_status: int = Field(default=0)
     seller_id: str = Field(default="")
     delivery_mode: int = Field(default=0)
-    allowance_plan: bool = Field(default=False)
+    # allowance_plan: bool = Field(default=False)
     is_free_return: bool = Field(default=False)
     xsec_token: str = Field(default="")
     # sale_qty_info: dict = Field(default={})
@@ -197,7 +198,7 @@ class Product(SQLModel, table=True):
     item_audit_status: int = Field(default=0)
     union_type: int = Field(default=0)
     total_stock: int = Field(default=0)
-    expected_purchase_time: int = Field(default=0, sa_type=sa.BigInteger)
+    # expected_purchase_time: int = Field(default=0, sa_type=sa.BigInteger)
     use_playback: int = Field(default=0)
     sold_out_sku_count: int = Field(default=0)
     is_o2_o: bool = Field(default=False)
@@ -216,10 +217,11 @@ class Product(SQLModel, table=True):
     contains_gift: bool = Field(default=False)
     is_boutique: bool = Field(default=False)
     # faqs: List[dict] = Field(default=[])
-    is_nft: bool = Field(default=False)
+    # is_nft: bool = Field(default=False)
     item_auditing_time: int = Field(default=0, sa_type=sa.BigInteger)
-    create_at: int = Field(default_factory=lambda: int(time.time()))
-    update_at: int = Field(default_factory=lambda: int(time.time()))
+    platform: str = Field(default="")
+    create_at: int = Field(default_factory=lambda: int(time.time()*1000), sa_type=sa.BigInteger)
+    update_at: int = Field(default_factory=lambda: int(time.time()*1000), sa_type=sa.BigInteger)
     create_time: datetime = Field(default_factory=datetime.now)
     update_time: datetime = Field(default_factory=datetime.now)
     
@@ -487,16 +489,16 @@ class Product(SQLModel, table=True):
             max_price=item.get('max_price', 0),
             images=item.get('images', []),
             categories=item.get('categories', []),
-            is_auto_off_shelf=item.get('is_auto_off_shelf', False),
-            is_education_pricing=item.get('is_education_pricing', False),
+            # is_auto_off_shelf=item.get('is_auto_off_shelf', False),
+            # is_education_pricing=item.get('is_education_pricing', False),
             product_note_num=item.get('product_note_num', 0),
             on_shelf_sku_count=item.get('on_shelf_sku_count', 0),
             is_channel=item.get('is_channel', False),
             category_check_status=item.get('category_check_status', 0),
-            category_check_time=item.get('category_check_time', 0),
+            # category_check_time=item.get('category_check_time', 0),
             seller_id=item.get('seller_id', ''),
             delivery_mode=item.get('delivery_mode', 0),
-            allowance_plan=item.get('allowance_plan', False),
+            # allowance_plan=item.get('allowance_plan', False),
             is_free_return=item.get('is_free_return', False),
             xsec_token=item.get('xsec_token', ''),
             sale_qty_info=item.get('sale_qty_info', {}),
@@ -514,7 +516,7 @@ class Product(SQLModel, table=True):
             item_audit_status=item.get('item_audit_status', 0),
             union_type=item.get('union_type', 0),
             total_stock=item.get('total_stock', 0),
-            expected_purchase_time=item.get('expected_purchase_time', 0),
+            # expected_purchase_time=item.get('expected_purchase_time', 0),
             use_playback=item.get('use_playback', 0),
             sold_out_sku_count=item.get('sold_out_sku_count', 0),
             is_o2_o=item.get('is_o2_o', False),
@@ -538,3 +540,51 @@ class Product(SQLModel, table=True):
             create_time=datetime.fromtimestamp(item.get('create_time', int(time.time() * 1000)) // 1000),  # Convert milliseconds to seconds
             update_time=datetime.fromtimestamp(item.get('update_time', int(time.time() * 1000)) // 1000),  # Convert milliseconds to seconds
         ) 
+    
+
+class ArticleStatus(str, Enum):
+    """文章状态枚举"""
+    DRAFT = "draft"      # 草稿
+    PENDING_REVIEW = "pending_review"    # 待审核
+    REJECTED = "rejected"   # 已拒绝
+    PENDING_PUBLISH = "pending_publish"    # 待发布
+    PUBLISHED = "published"  # 已发布
+
+    @classmethod
+    def get_description(cls, status: str) -> str:
+        """获取状态描述"""
+        try:
+            return cls(status).name
+        except ValueError:
+            return "未知状态"
+
+
+class ProductArticle(SQLModel, table=True):
+    __tablename__ = "product_article"
+    """商品文章模型"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    item_id: str = Field(index=True, description="商品ID")
+    sku_id: str = Field(index=True, description="SKU ID")
+    title: str = Field(description="文章标题")
+    content: str = Field(description="文章内容", sa_type=sa.String(length=4096))
+    tag_ids: str = Field(description="话题标签ID列表, 逗号分隔", sa_type=sa.String(length=1024))
+    owner_id: str = Field(description="文章作者ID")
+    author_name: str = Field(description="文章作者名称")
+    status: ArticleStatus = Field(
+        sa_column=sa.Column(sa.Enum(ArticleStatus)),
+        default=ArticleStatus.DRAFT,
+        description="状态"
+    )
+    create_at: int = Field(default_factory=lambda: int(time.time()*1000), sa_type=sa.BigInteger)
+    update_at: int = Field(default_factory=lambda: int(time.time()*1000), sa_type=sa.BigInteger)
+
+
+class Tag(SQLModel, table=True):
+    """标签模型"""
+    id: str = Field(primary_key=True)
+    name: str = Field(description="标签名称")
+    link: str = Field(description="标签链接")
+    type: str = Field(description="标签类型")
+    platform: str = Field(description="平台")
+    create_at: int = Field(default_factory=lambda: int(time.time()*1000), sa_type=sa.BigInteger)
+    update_at: int = Field(default_factory=lambda: int(time.time()*1000), sa_type=sa.BigInteger)

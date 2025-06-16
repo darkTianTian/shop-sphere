@@ -53,7 +53,7 @@ class ProductClient(XiaohongshuClient):
         }
         
         # 发送请求
-        return self._make_request('POST', path, data)
+        return self._make_request('POST', path, "", data)
     
     def get_product_detail(self, product_id: str) -> Dict[str, Any]:
         """获取商品详情
