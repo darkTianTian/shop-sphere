@@ -14,6 +14,84 @@ class VideoService:
     def __init__(self, logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger(__name__)
     
+    def _map_video_format(self, codec_name: str) -> str:
+        """
+        将 FFmpeg 的编码器名称映射为标准格式名称
+        
+        Args:
+            codec_name: FFmpeg 返回的编码器名称
+            
+        Returns:
+            标准格式名称
+        """
+        format_mapping = {
+            'h264': 'AVC',
+            'h265': 'HEVC',
+            'hevc': 'HEVC',
+            'vp8': 'VP8',
+            'vp9': 'VP9',
+            'av1': 'AV1',
+            'mpeg4': 'MPEG4',
+            'mpeg2video': 'MPEG2',
+            'wmv3': 'WMV',
+            'flv1': 'FLV',
+            'theora': 'Theora'
+        }
+        return format_mapping.get(codec_name.lower(), codec_name.upper())
+    
+    def _map_audio_format(self, codec_name: str) -> str:
+        """
+        将 FFmpeg 的音频编码器名称映射为标准格式名称
+        
+        Args:
+            codec_name: FFmpeg 返回的音频编码器名称
+            
+        Returns:
+            标准格式名称
+        """
+        format_mapping = {
+            'aac': 'AAC',
+            'mp3': 'MP3',
+            'opus': 'OPUS',
+            'vorbis': 'Vorbis',
+            'flac': 'FLAC',
+            'pcm_s16le': 'PCM',
+            'ac3': 'AC3',
+            'eac3': 'EAC3'
+        }
+        return format_mapping.get(codec_name.lower(), codec_name.upper())
+    
+    def _map_color_info(self, color_value: str) -> str:
+        """
+        将 FFmpeg 的色彩信息映射为标准格式
+        
+        Args:
+            color_value: FFmpeg 返回的色彩信息值
+            
+        Returns:
+            标准色彩信息格式
+        """
+        if not color_value or color_value.lower() in ['unknown', 'unspecified', '']:
+            return 'BT.709'
+        
+        color_mapping = {
+            'bt709': 'BT.709',
+            'bt.709': 'BT.709',
+            'rec709': 'BT.709',
+            'bt2020': 'BT.2020',
+            'bt.2020': 'BT.2020',
+            'rec2020': 'BT.2020',
+            'bt601': 'BT.601',
+            'bt.601': 'BT.601',
+            'rec601': 'BT.601',
+            'smpte170m': 'BT.601',
+            'smpte240m': 'SMPTE-240M',
+            'srgb': 'sRGB',
+            'displayp3': 'Display P3'
+        }
+        
+        return color_mapping.get(color_value.lower(), 'BT.709')
+    
     def extract_video_metadata(self, video_path: str) -> Dict[str, Any]:
         """
         使用 ffmpeg 提取视频元数据
@@ -97,15 +175,19 @@ class VideoService:
         audio_channels = int(audio_info.get('channels', 0))
         audio_sample_rate = int(audio_info.get('sample_rate', 0))
         
-        # 色彩信息
-        colour_primaries = video_info.get('color_primaries', 'unknown')
-        matrix_coefficients = video_info.get('color_space', 'unknown')
-        transfer_characteristics = video_info.get('color_transfer', 'unknown')
+        # 色彩信息映射
+        colour_primaries = self._map_color_info(video_info.get('color_primaries', ''))
+        matrix_coefficients = self._map_color_info(video_info.get('color_space', ''))
+        transfer_characteristics = self._map_color_info(video_info.get('color_transfer', ''))
         
         # 旋转信息
         rotation = 0
         if 'tags' in video_info and 'rotate' in video_info['tags']:
             rotation = int(video_info['tags']['rotate'])
+        
+        # 格式映射
+        video_format = self._map_video_format(video_info.get('codec_name', 'unknown'))
+        audio_format = self._map_audio_format(audio_info.get('codec_name', 'unknown'))
         
         # 创建 Video 实例
         video = Video(
@@ -117,7 +199,7 @@ class VideoService:
             width=width,
             height=height,
             duration=duration_ms,
-            format=video_info.get('codec_name', 'unknown'),
+            format=video_format,
             bitrate=video_bitrate,
             frame_rate=frame_rate,
             colour_primaries=colour_primaries,
@@ -127,7 +209,7 @@ class VideoService:
             audio_bitrate=audio_bitrate,
             audio_channels=audio_channels,
             audio_duration=duration_ms,  # 通常音频和视频时长相同
-            audio_format=audio_info.get('codec_name', 'unknown'),
+            audio_format=audio_format,
             audio_sampling_rate=audio_sample_rate,
             cover_file_id="",  # 需要单独生成封面
             cover_url="",
