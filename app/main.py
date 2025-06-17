@@ -5,7 +5,7 @@ from app.routers import video
 
 app = FastAPI(
     title="Shop Sphere API",
-    description="电商平台API，支持视频上传和处理",
+    description="电商平台API，支持视频素材上传和处理",
     version="1.0.0"
 )
 

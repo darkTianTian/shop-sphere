@@ -14,32 +14,33 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # 创建路由器
-router = APIRouter(prefix="/api/v1/videos", tags=["videos"])
+router = APIRouter(prefix="/api/v1/video-materials", tags=["video-materials"])
 
-# 视频服务实例
+# 视频素材服务实例
 video_service = VideoService(logger=logger)
 
 
-class VideoUploadResponse(BaseModel):
-    """视频上传响应模型"""
+class VideoMaterialUploadResponse(BaseModel):
+    """视频素材上传响应模型"""
     success: bool
     message: str
-    video_id: Optional[int] = None
-    video_info: Optional[dict] = None
+    video_material_id: Optional[int] = None
+    video_material_info: Optional[dict] = None
 
 
-@router.post("/upload", response_model=VideoUploadResponse)
-async def upload_video(
+@router.post("/upload", response_model=VideoMaterialUploadResponse)
+async def upload_video_material(
     video_file: UploadFile = File(..., description="视频文件"),
     item_id: str = Form(..., description="商品ID"),
     sku_id: str = Form(None, description="SKU ID，如果不提供则使用item_id"),
+    description: str = Form(None, description="视频素材描述"),
     platform: str = Form("web", description="平台"),
     author_id: str = Form("", description="作者ID"),
     owner_id: str = Form("", description="所有者ID"),
     source: str = Form("upload", description="来源")
 ):
     """
-    上传视频文件并提取元数据保存到数据库
+    上传视频素材文件并提取元数据保存到数据库
     
     Args:
         video_file: 上传的视频文件
@@ -51,7 +52,7 @@ async def upload_video(
         source: 来源，默认为upload
         
     Returns:
-        VideoUploadResponse: 包含上传结果的响应
+        VideoMaterialUploadResponse: 包含上传结果的响应
     """
     
     # 验证文件类型
@@ -65,10 +66,13 @@ async def upload_video(
     if not sku_id:
         sku_id = item_id
     
+    # 获取文件扩展名
+    file_extension = os.path.splitext(video_file.filename)[1].lower()
+    
     temp_file_path = None
     try:
         # 创建临时文件保存上传的视频
-        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(video_file.filename)[1]) as temp_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
             temp_file_path = temp_file.name
             
             # 读取并写入文件内容
@@ -80,11 +84,14 @@ async def upload_video(
         file_url = f"/uploads/videos/{video_file.filename}"
         
         # 处理视频文件
-        video = video_service.process_video_file(
+        video_material = video_service.process_video_file(
             video_file_path=temp_file_path,
             item_id=item_id,
             sku_id=sku_id,
             file_url=file_url,
+            name=video_file.filename,
+            description=description,
+            file_extension=file_extension,
             platform=platform,
             author_id=author_id,
             owner_id=owner_id,
@@ -92,39 +99,43 @@ async def upload_video(
         )
         
         # 构建响应数据
-        video_info = {
-            "id": video.id,
-            "file_id": video.file_id,
-            "url": video.url,
-            "item_id": video.item_id,
-            "sku_id": video.sku_id,
-            "width": video.width,
-            "height": video.height,
-            "duration": video.duration,
-            "format": video.format,
-            "bitrate": video.bitrate,
-            "frame_rate": video.frame_rate,
-            "audio_format": video.audio_format,
-            "audio_bitrate": video.audio_bitrate,
-            "audio_channels": video.audio_channels,
-            "platform": video.platform,
-            "source": video.source
+        video_material_info = {
+            "id": video_material.id,
+            "name": video_material.name,
+            "description": video_material.description,
+            "file_extension": video_material.file_extension,
+            "uuid": video_material.uuid,
+            "url": video_material.url,
+            "item_id": video_material.item_id,
+            "sku_id": video_material.sku_id,
+            "status": video_material.status,
+            "width": video_material.width,
+            "height": video_material.height,
+            "duration": video_material.duration,
+            "format": video_material.format,
+            "bitrate": video_material.bitrate,
+            "frame_rate": video_material.frame_rate,
+            "audio_format": video_material.audio_format,
+            "audio_bitrate": video_material.audio_bitrate,
+            "audio_channels": video_material.audio_channels,
+            "platform": video_material.platform,
+            "source": video_material.source
         }
         
-        logger.info(f"视频上传成功: {video_file.filename}, 数据库ID: {video.id}")
+        logger.info(f"视频素材上传成功: {video_file.filename}, 数据库ID: {video_material.id}")
         
-        return VideoUploadResponse(
+        return VideoMaterialUploadResponse(
             success=True,
-            message="视频上传并处理成功",
-            video_id=video.id,
-            video_info=video_info
+            message="视频素材上传并处理成功",
+            video_material_id=video_material.id,
+            video_material_info=video_material_info
         )
         
     except Exception as e:
-        logger.error(f"视频上传处理失败: {str(e)}")
+        logger.error(f"视频素材上传处理失败: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"视频处理失败: {str(e)}"
+            detail=f"视频素材处理失败: {str(e)}"
         )
     
     finally:
@@ -136,112 +147,124 @@ async def upload_video(
                 logger.warning(f"清理临时文件失败: {str(e)}")
 
 
-@router.get("/{video_id}")
-async def get_video(video_id: int):
+@router.get("/{video_material_id}")
+async def get_video_material(video_material_id: int):
     """
-    根据ID获取视频信息
+    根据ID获取视频素材信息
     
     Args:
-        video_id: 视频ID
+        video_material_id: 视频素材ID
         
     Returns:
-        视频信息
+        视频素材信息
     """
     try:
         from sqlmodel import Session, select
         from app.internal.db import engine
-        from app.models.video import Video
+        from app.models.video import VideoMaterial
         
         with Session(engine) as session:
-            video = session.get(Video, video_id)
-            if not video:
+            video_material = session.get(VideoMaterial, video_material_id)
+            if not video_material:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="视频不存在"
+                    detail="视频素材不存在"
                 )
             
             return {
                 "success": True,
                 "data": {
-                    "id": video.id,
-                    "file_id": video.file_id,
-                    "url": video.url,
-                    "item_id": video.item_id,
-                    "sku_id": video.sku_id,
-                    "width": video.width,
-                    "height": video.height,
-                    "duration": video.duration,
-                    "format": video.format,
-                    "bitrate": video.bitrate,
-                    "frame_rate": video.frame_rate,
-                    "audio_format": video.audio_format,
-                    "audio_bitrate": video.audio_bitrate,
-                    "audio_channels": video.audio_channels,
-                    "platform": video.platform,
-                    "source": video.source,
-                    "create_time": video.create_time,
-                    "update_time": video.update_time
+                    "id": video_material.id,
+                    "name": video_material.name,
+                    "description": video_material.description,
+                    "file_extension": video_material.file_extension,
+                    "uuid": video_material.uuid,
+                    "url": video_material.url,
+                    "item_id": video_material.item_id,
+                    "sku_id": video_material.sku_id,
+                    "status": video_material.status,
+                    "width": video_material.width,
+                    "height": video_material.height,
+                    "duration": video_material.duration,
+                    "format": video_material.format,
+                    "bitrate": video_material.bitrate,
+                    "frame_rate": video_material.frame_rate,
+                    "audio_format": video_material.audio_format,
+                    "audio_bitrate": video_material.audio_bitrate,
+                    "audio_channels": video_material.audio_channels,
+                    "platform": video_material.platform,
+                    "source": video_material.source,
+                    "create_time": video_material.create_time,
+                    "update_time": video_material.update_time
                 }
             }
             
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"获取视频信息失败: {str(e)}")
+        logger.error(f"获取视频素材信息失败: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取视频信息失败: {str(e)}"
+            detail=f"获取视频素材信息失败: {str(e)}"
         )
 
 
 @router.get("/item/{item_id}")
-async def get_videos_by_item(item_id: str):
+async def get_video_materials_by_item(item_id: str):
     """
-    根据商品ID获取视频列表
+    根据商品ID获取视频素材列表
     
     Args:
         item_id: 商品ID
         
     Returns:
-        视频列表
+        视频素材列表
     """
     try:
         from sqlmodel import Session, select
         from app.internal.db import engine
-        from app.models.video import Video
+        from app.models.video import VideoMaterial
         
         with Session(engine) as session:
-            videos = session.exec(
-                select(Video).where(Video.item_id == item_id)
+            video_materials = session.exec(
+                select(VideoMaterial).where(VideoMaterial.item_id == item_id)
             ).all()
             
-            video_list = []
-            for video in videos:
-                video_list.append({
-                    "id": video.id,
-                    "file_id": video.file_id,
-                    "url": video.url,
-                    "sku_id": video.sku_id,
-                    "width": video.width,
-                    "height": video.height,
-                    "duration": video.duration,
-                    "format": video.format,
-                    "bitrate": video.bitrate,
-                    "frame_rate": video.frame_rate,
-                    "platform": video.platform,
-                    "source": video.source,
-                    "create_time": video.create_time
+            video_material_list = []
+            for video_material in video_materials:
+                video_material_list.append({
+                    "id": video_material.id,
+                    "name": video_material.name,
+                    "description": video_material.description,
+                    "file_extension": video_material.file_extension,
+                    "uuid": video_material.uuid,
+                    "url": video_material.url,
+                    "sku_id": video_material.sku_id,
+                    "status": video_material.status,
+                    "width": video_material.width,
+                    "height": video_material.height,
+                    "duration": video_material.duration,
+                    "format": video_material.format,
+                    "bitrate": video_material.bitrate,
+                    "frame_rate": video_material.frame_rate,
+                    "audio_format": video_material.audio_format,
+                    "audio_bitrate": video_material.audio_bitrate,
+                    "audio_channels": video_material.audio_channels,
+                    "platform": video_material.platform,
+                    "source": video_material.source,
+                    "create_time": video_material.create_time,
+                    "update_time": video_material.update_time
                 })
             
             return {
                 "success": True,
-                "data": video_list,
-                "count": len(video_list)
+                "data": video_material_list,
+                "count": len(video_material_list)
             }
             
     except Exception as e:
-        logger.error(f"获取商品视频列表失败: {str(e)}")
+        logger.error(f"获取商品视频素材列表失败: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取商品视频列表失败: {str(e)}"
+            detail=f"获取商品视频素材列表失败: {str(e)}"
         ) 

@@ -5,11 +5,11 @@ from typing import Dict, Any, Optional
 import ffmpeg
 from sqlmodel import Session
 from app.internal.db import engine
-from app.models.video import Video
+from app.models.video import VideoMaterial
 
 
 class VideoService:
-    """视频处理服务"""
+    """视频素材处理服务"""
     
     def __init__(self, logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger(__name__)
@@ -130,24 +130,28 @@ class VideoService:
             raise
     
     def convert_to_video_model(self, metadata: Dict[str, Any], item_id: str, sku_id: str, 
-                              file_url: str, platform: str = "web", 
+                              file_url: str, name: str, description: str = "", 
+                              file_extension: str = "", platform: str = "web", 
                               author_id: str = "", owner_id: str = "", 
-                              source: str = "upload") -> Video:
+                              source: str = "upload") -> VideoMaterial:
         """
-        将 ffmpeg 元数据转换为 Video 模型
+        将 ffmpeg 元数据转换为 VideoMaterial 模型
         
         Args:
             metadata: ffmpeg 提取的元数据
             item_id: 商品ID
             sku_id: SKU ID
             file_url: 文件URL
+            name: 视频素材名称
+            description: 视频素材描述
+            file_extension: 文件扩展名
             platform: 平台
             author_id: 作者ID
             owner_id: 所有者ID
             source: 来源
             
         Returns:
-            Video 模型实例
+            VideoMaterial 模型实例
         """
         format_info = metadata['format']
         video_info = metadata['video'] or {}
@@ -189,11 +193,12 @@ class VideoService:
         video_format = self._map_video_format(video_info.get('codec_name', 'unknown'))
         audio_format = self._map_audio_format(audio_info.get('codec_name', 'unknown'))
         
-        # 创建 Video 实例
-        video = Video(
-            file_id=file_id,
+        # 创建 VideoMaterial 实例
+        video_material = VideoMaterial(
+            name=name,
+            description=description,
+            file_extension=file_extension,
             url=file_url,
-            third_url="",
             item_id=item_id,
             sku_id=sku_id,
             width=width,
@@ -211,7 +216,6 @@ class VideoService:
             audio_duration=duration_ms,  # 通常音频和视频时长相同
             audio_format=audio_format,
             audio_sampling_rate=audio_sample_rate,
-            cover_file_id="",  # 需要单独生成封面
             cover_url="",
             cover_width=width,
             cover_height=height,
@@ -221,31 +225,31 @@ class VideoService:
             source=source
         )
         
-        return video
+        return video_material
     
-    def save_video_to_db(self, video: Video) -> Video:
+    def save_video_to_db(self, video_material: VideoMaterial) -> VideoMaterial:
         """
-        保存视频信息到数据库
+        保存视频素材信息到数据库
         
         Args:
-            video: Video 模型实例
+            video_material: VideoMaterial 模型实例
             
         Returns:
-            保存后的 Video 实例
+            保存后的 VideoMaterial 实例
         """
         try:
             with Session(engine) as session:
-                session.add(video)
+                session.add(video_material)
                 session.commit()
-                session.refresh(video)
-                self.logger.info(f"视频信息已保存到数据库: {video.id}")
-                return video
+                session.refresh(video_material)
+                self.logger.info(f"视频素材信息已保存到数据库: {video_material.id}")
+                return video_material
         except Exception as e:
-            self.logger.error(f"保存视频信息到数据库失败: {str(e)}")
+            self.logger.error(f"保存视频素材信息到数据库失败: {str(e)}")
             raise
     
     def process_video_file(self, video_file_path: str, item_id: str, sku_id: str, 
-                          file_url: str, **kwargs) -> Video:
+                          file_url: str, **kwargs) -> VideoMaterial:
         """
         处理视频文件：提取元数据并保存到数据库
         
@@ -257,13 +261,13 @@ class VideoService:
             **kwargs: 其他参数
             
         Returns:
-            保存后的 Video 实例
+            保存后的 VideoMaterial 实例
         """
         # 提取元数据
         metadata = self.extract_video_metadata(video_file_path)
         
-        # 转换为 Video 模型
-        video = self.convert_to_video_model(
+        # 转换为 VideoMaterial 模型
+        video_material = self.convert_to_video_model(
             metadata=metadata,
             item_id=item_id,
             sku_id=sku_id,
@@ -272,4 +276,4 @@ class VideoService:
         )
         
         # 保存到数据库
-        return self.save_video_to_db(video) 
+        return self.save_video_to_db(video_material) 
