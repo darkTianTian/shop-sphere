@@ -1,6 +1,7 @@
 import os
 import tempfile
 import logging
+import sys
 from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status
 from fastapi.responses import JSONResponse
@@ -10,7 +11,11 @@ from app.services.video_service import VideoService
 
 
 # 配置日志
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stdout  # 将INFO日志输出到stdout
+)
 logger = logging.getLogger(__name__)
 
 # 创建路由器

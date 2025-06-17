@@ -1,6 +1,7 @@
 import os
 import tempfile
 import logging
+import sys
 from typing import Dict, Any, Optional
 import ffmpeg
 from sqlmodel import Session
@@ -12,7 +13,16 @@ class VideoService:
     """视频素材处理服务"""
     
     def __init__(self, logger: Optional[logging.Logger] = None):
-        self.logger = logger or logging.getLogger(__name__)
+        if logger is None:
+            # 配置默认logger输出到stdout
+            logging.basicConfig(
+                level=logging.INFO,
+                format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                stream=sys.stdout
+            )
+            self.logger = logging.getLogger(__name__)
+        else:
+            self.logger = logger
     
     def _map_video_format(self, codec_name: str) -> str:
         """
@@ -194,6 +204,12 @@ class VideoService:
         audio_format = self._map_audio_format(audio_info.get('codec_name', 'unknown'))
         
         # 创建 VideoMaterial 实例
+        # 处理None值
+        if description is None:
+            description = ""
+            
+        self.logger.info(f"准备创建VideoMaterial实例，参数: name={name}, description={description}, file_extension={file_extension}")
+        
         video_material = VideoMaterial(
             name=name,
             description=description,
