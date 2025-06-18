@@ -26,9 +26,9 @@ services:
       retries: 3
       start_period: 40s
 
-  # Nginx反向代理（处理静态文件和SSL）
+  # Nginx反向代理（使用备用镜像源）
   nginx:
-    image: registry.cn-hangzhou.aliyuncs.com/library/nginx:alpine
+    image: dockerhub.azk8s.cn/library/nginx:alpine
     container_name: shopsphere-nginx
     ports:
       - "80:80"

@@ -56,6 +56,7 @@ jobs:
         # 创建部署包，包含现有的配置文件
         mkdir -p deploy-package
         cp deploy/docker/docker-compose.prod.yml deploy-package/
+        cp deploy/docker/docker-compose.prod.fallback.yml deploy-package/
         cp -r deploy/nginx deploy-package/nginx
         cp -r deploy/supervisor deploy-package/supervisor
         cp deploy/scripts/configure-docker-mirrors.sh deploy-package/
@@ -120,8 +121,27 @@ jobs:
         echo "📦 加载新Docker镜像..."
         $CONTAINER_CMD load < /tmp/shop-sphere-image.tar.gz
         
+        # 预拉取nginx镜像（避免启动时拉取失败）
+        echo "🐳 预拉取nginx镜像..."
+        for i in {1..3}; do
+          if $CONTAINER_CMD pull registry.cn-hangzhou.aliyuncs.com/library/nginx:alpine; then
+            echo "✅ nginx镜像拉取成功"
+            break
+          else
+            echo "⚠️ nginx镜像拉取失败，重试 ($i/3)..."
+            sleep 10
+            if [ $i -eq 3 ]; then
+              echo "❌ nginx镜像拉取失败，尝试使用其他镜像源..."
+              $CONTAINER_CMD pull dockerhub.azk8s.cn/library/nginx:alpine || \
+              $CONTAINER_CMD pull docker.mirrors.ustc.edu.cn/library/nginx:alpine || \
+              echo "⚠️ 所有镜像源都失败，将在启动时重试"
+            fi
+          fi
+        done
+        
         # 复制配置文件
         cp /tmp/deploy-package/docker-compose.prod.yml .
+        cp /tmp/deploy-package/docker-compose.prod.fallback.yml .
         cp -r /tmp/deploy-package/nginx .
         cp -r /tmp/deploy-package/supervisor .
         
@@ -178,7 +198,28 @@ jobs:
         
         # 启动服务
         echo "🚀 启动服务..."
-        $COMPOSE_CMD -f docker-compose.prod.yml up -d
+        COMPOSE_FILE="docker-compose.prod.yml"
+        
+        for i in {1..2}; do
+          if $COMPOSE_CMD -f $COMPOSE_FILE up -d; then
+            echo "✅ 服务启动成功（使用 $COMPOSE_FILE）"
+            break
+          else
+            echo "⚠️ 使用 $COMPOSE_FILE 启动失败..."
+            $COMPOSE_CMD -f $COMPOSE_FILE down || true
+            
+            if [ $i -eq 1 ] && [ -f "docker-compose.prod.fallback.yml" ]; then
+              echo "🔄 切换到备用配置..."
+              COMPOSE_FILE="docker-compose.prod.fallback.yml"
+              sleep 10
+            else
+              echo "❌ 所有配置都启动失败，查看详细错误："
+              $COMPOSE_CMD -f docker-compose.prod.yml logs || true
+              $COMPOSE_CMD -f docker-compose.prod.fallback.yml logs || true
+              exit 1
+            fi
+          fi
+        done
         
         # 等待服务启动
         echo "⏳ 等待服务启动..."
@@ -187,7 +228,7 @@ jobs:
         # 健康检查
         echo "🔍 执行健康检查..."
         for i in {1..12}; do
-          if $COMPOSE_CMD -f docker-compose.prod.yml exec -T web curl -f http://localhost:8000/health; then
+          if $COMPOSE_CMD -f $COMPOSE_FILE exec -T web curl -f http://localhost:8000/health; then
             echo "✅ 服务启动成功！"
             break
           else
@@ -197,13 +238,13 @@ jobs:
           
           if [ $i -eq 12 ]; then
             echo "❌ 服务启动失败，查看日志："
-            $COMPOSE_CMD -f docker-compose.prod.yml logs --tail=50
+            $COMPOSE_CMD -f $COMPOSE_FILE logs --tail=50
             exit 1
           fi
         done
         
         echo "🎉 部署完成！"
-        $COMPOSE_CMD -f docker-compose.prod.yml ps
+        $COMPOSE_CMD -f $COMPOSE_FILE ps
         EOF
         
         chmod +x deploy-package/deploy.sh
