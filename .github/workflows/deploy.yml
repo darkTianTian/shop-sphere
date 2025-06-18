@@ -69,10 +69,29 @@ jobs:
         
         PROJECT_DIR="/opt/shop-sphere"
         
+        # 检测容器运行时环境
+        if command -v podman &> /dev/null; then
+          echo "🐳 使用Podman环境"
+          CONTAINER_CMD="podman"
+          
+          # 优先使用podman-compose，否则使用docker-compose
+          if command -v podman-compose &> /dev/null; then
+            COMPOSE_CMD="podman-compose"
+          else
+            COMPOSE_CMD="docker-compose"
+          fi
+        else
+          echo "🐳 使用Docker环境"
+          CONTAINER_CMD="docker"
+          COMPOSE_CMD="docker-compose"
+        fi
+        
+        echo "📦 使用容器命令: $CONTAINER_CMD, 编排命令: $COMPOSE_CMD"
+        
         # 停止当前服务
         if [ -f $PROJECT_DIR/docker-compose.prod.yml ]; then
           echo "⏸️ 停止当前服务..."
-          cd $PROJECT_DIR && docker-compose -f docker-compose.prod.yml down || true
+          cd $PROJECT_DIR && $COMPOSE_CMD -f docker-compose.prod.yml down || true
         fi
         
         # 创建项目目录
@@ -80,14 +99,14 @@ jobs:
         cd $PROJECT_DIR
         
         # 备份旧镜像
-        if docker images shop-sphere:latest -q | grep -q .; then
+        if $CONTAINER_CMD images shop-sphere:latest -q | grep -q .; then
           echo "💾 备份旧镜像..."
-          docker tag shop-sphere:latest shop-sphere:backup-$(date +%Y%m%d_%H%M%S) || true
+          $CONTAINER_CMD tag shop-sphere:latest shop-sphere:backup-$(date +%Y%m%d_%H%M%S) || true
         fi
         
         # 加载新镜像
         echo "📦 加载新Docker镜像..."
-        docker load < /tmp/shop-sphere-image.tar.gz
+        $CONTAINER_CMD load < /tmp/shop-sphere-image.tar.gz
         
         # 复制配置文件
         cp /tmp/deploy-package/docker-compose.prod.yml .
@@ -135,7 +154,7 @@ jobs:
         
         # 启动服务
         echo "🚀 启动服务..."
-        docker-compose -f docker-compose.prod.yml up -d
+        $COMPOSE_CMD -f docker-compose.prod.yml up -d
         
         # 等待服务启动
         echo "⏳ 等待服务启动..."
@@ -144,7 +163,7 @@ jobs:
         # 健康检查
         echo "🔍 执行健康检查..."
         for i in {1..12}; do
-          if docker-compose -f docker-compose.prod.yml exec -T web curl -f http://localhost/health; then
+          if $COMPOSE_CMD -f docker-compose.prod.yml exec -T web curl -f http://localhost/health; then
             echo "✅ 服务启动成功！"
             break
           else
@@ -154,13 +173,13 @@ jobs:
           
           if [ $i -eq 12 ]; then
             echo "❌ 服务启动失败，查看日志："
-            docker-compose -f docker-compose.prod.yml logs --tail=50
+            $COMPOSE_CMD -f docker-compose.prod.yml logs --tail=50
             exit 1
           fi
         done
         
         echo "🎉 部署完成！"
-        docker-compose -f docker-compose.prod.yml ps
+        $COMPOSE_CMD -f docker-compose.prod.yml ps
         EOF
         
         chmod +x deploy-package/deploy.sh
@@ -196,6 +215,37 @@ jobs:
         key: ${{ secrets.ECS_SSH_KEY }}
         timeout: 600s
         script: |
+          # 初始化Podman环境（如果使用Podman）
+          if command -v podman &> /dev/null; then
+            echo "🔧 初始化Podman环境..."
+            
+            # 启动Podman socket服务
+            echo "🔌 配置Podman socket服务..."
+            sudo systemctl enable --now podman.socket || true
+            
+            # 等待socket启动
+            sleep 5
+            
+            # 创建docker socket链接
+            if [ ! -S /var/run/docker.sock ]; then
+              sudo ln -sf /run/podman/podman.sock /var/run/docker.sock || true
+            fi
+            
+            # 验证socket连接
+            if sudo test -S /run/podman/podman.sock; then
+              echo "✅ Podman socket服务已启动"
+            else
+              echo "⚠️ Podman socket服务启动失败，尝试用户模式..."
+              systemctl --user enable --now podman.socket || true
+            fi
+            
+            # 安装podman-compose（如果不存在）
+            if ! command -v podman-compose &> /dev/null; then
+              echo "📦 尝试安装podman-compose..."
+              pip3 install podman-compose || echo "⚠️ podman-compose安装失败，将使用docker-compose"
+            fi
+          fi
+          
           # 配置Docker镜像源（首次部署时）
           if [ ! -f /etc/docker/daemon.json ]; then
             echo "🔧 配置Docker镜像源..."
@@ -229,4 +279,16 @@ jobs:
           rm -rf /tmp/deploy-package
           
           echo "🎉 部署完成！服务状态："
-          cd /opt/shop-sphere && docker-compose -f docker-compose.prod.yml ps 
+          cd /opt/shop-sphere
+          
+          # 检测容器运行时并显示服务状态
+          if command -v podman &> /dev/null; then
+            if command -v podman-compose &> /dev/null; then
+              podman-compose -f docker-compose.prod.yml ps
+            else
+              export DOCKER_HOST="unix:///run/podman/podman.sock"
+              docker-compose -f docker-compose.prod.yml ps
+            fi
+          else
+            docker-compose -f docker-compose.prod.yml ps
+          fi 
