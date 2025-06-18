@@ -74,11 +74,23 @@ jobs:
           echo "🐳 使用Podman环境"
           CONTAINER_CMD="podman"
           
-          # 优先使用podman-compose，否则使用docker-compose
-          if command -v podman-compose &> /dev/null; then
-            COMPOSE_CMD="podman-compose"
-          else
-            COMPOSE_CMD="docker-compose"
+          # 直接使用docker-compose通过Podman socket，避免podman-compose的Python版本问题
+          COMPOSE_CMD="docker-compose"
+          
+          # 确保Podman socket可用
+          echo "🔌 配置Podman socket..."
+          sudo systemctl enable --now podman.socket || true
+          sleep 3
+          
+          # 设置DOCKER_HOST环境变量
+          export DOCKER_HOST="unix:///run/podman/podman.sock"
+          
+          # 验证连接
+          if ! docker-compose version &> /dev/null; then
+            echo "⚠️ docker-compose无法连接Podman socket，尝试创建链接..."
+            sudo mkdir -p /var/run
+            sudo ln -sf /run/podman/podman.sock /var/run/docker.sock || true
+            unset DOCKER_HOST
           fi
         else
           echo "🐳 使用Docker环境"
@@ -239,10 +251,14 @@ jobs:
               systemctl --user enable --now podman.socket || true
             fi
             
-            # 安装podman-compose（如果不存在）
-            if ! command -v podman-compose &> /dev/null; then
-              echo "📦 尝试安装podman-compose..."
-              pip3 install podman-compose || echo "⚠️ podman-compose安装失败，将使用docker-compose"
+            # 验证docker-compose可以通过socket工作
+            echo "🔍 验证docker-compose与Podman的兼容性..."
+            export DOCKER_HOST="unix:///run/podman/podman.sock"
+            if docker-compose version; then
+              echo "✅ docker-compose可以通过Podman socket工作"
+            else
+              echo "⚠️ 将使用直接的socket链接方式"
+              unset DOCKER_HOST
             fi
           fi
           
@@ -283,12 +299,13 @@ jobs:
           
           # 检测容器运行时并显示服务状态
           if command -v podman &> /dev/null; then
-            if command -v podman-compose &> /dev/null; then
-              podman-compose -f docker-compose.prod.yml ps
-            else
-              export DOCKER_HOST="unix:///run/podman/podman.sock"
+            echo "🐳 使用Podman环境显示服务状态"
+            export DOCKER_HOST="unix:///run/podman/podman.sock"
+            docker-compose -f docker-compose.prod.yml ps || {
+              echo "⚠️ 通过socket连接失败，尝试直接连接..."
+              unset DOCKER_HOST
               docker-compose -f docker-compose.prod.yml ps
-            fi
+            }
           else
             docker-compose -f docker-compose.prod.yml ps
           fi 
