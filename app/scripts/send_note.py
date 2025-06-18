@@ -102,8 +102,8 @@ def main():
         # 添加定时任务
         # # 每天上午10点和下午3点发送笔记
         # scheduler.add_daily_task(send_note_task, hour=10, minute=0, args=(note_service, logger))
-        # scheduler.add_daily_task(send_note_task, hour=15, minute=0, args=(note_service, logger))
-        scheduler.add_minute_task(send_note_task, note_service, logger)
+        scheduler.add_daily_task(send_note_task, hour=15, minute=0, args=(note_service, logger))
+        # scheduler.add_minute_task(send_note_task, note_service, logger)
         
         logger.info("已添加定时发送笔记任务")
         
