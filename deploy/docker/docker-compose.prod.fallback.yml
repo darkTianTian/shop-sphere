@@ -28,7 +28,7 @@ services:
 
   # Nginx反向代理（使用备用镜像源）
   nginx:
-    image: dockerhub.azk8s.cn/library/nginx:alpine
+    image: nginx:alpine
     container_name: shopsphere-nginx
     ports:
       - "80:80"

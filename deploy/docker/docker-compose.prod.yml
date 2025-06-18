@@ -28,7 +28,7 @@ services:
 
   # Nginx反向代理（处理静态文件和SSL）
   nginx:
-    image: registry.cn-hangzhou.aliyuncs.com/library/nginx:alpine
+    image: nginx:alpine
     container_name: shopsphere-nginx
     ports:
       - "80:80"

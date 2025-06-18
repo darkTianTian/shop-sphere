@@ -124,17 +124,14 @@ jobs:
         # 预拉取nginx镜像（避免启动时拉取失败）
         echo "🐳 预拉取nginx镜像..."
         for i in {1..3}; do
-          if $CONTAINER_CMD pull registry.cn-hangzhou.aliyuncs.com/library/nginx:alpine; then
+          if $CONTAINER_CMD pull nginx:alpine; then
             echo "✅ nginx镜像拉取成功"
             break
           else
             echo "⚠️ nginx镜像拉取失败，重试 ($i/3)..."
             sleep 10
             if [ $i -eq 3 ]; then
-              echo "❌ nginx镜像拉取失败，尝试使用其他镜像源..."
-              $CONTAINER_CMD pull dockerhub.azk8s.cn/library/nginx:alpine || \
-              $CONTAINER_CMD pull docker.mirrors.ustc.edu.cn/library/nginx:alpine || \
-              echo "⚠️ 所有镜像源都失败，将在启动时重试"
+              echo "⚠️ nginx镜像预拉取失败，将在启动时重试"
             fi
           fi
         done
