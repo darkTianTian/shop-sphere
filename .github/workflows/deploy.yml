@@ -40,154 +40,193 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
+    - name: Build Docker image
+      run: |
+        echo "🐳 Building Docker image..."
+        docker build -f deploy/docker/Dockerfile.prod -t shop-sphere:latest .
+        echo "✅ Docker image built successfully"
+        
+        # 保存镜像为tar文件
+        docker save shop-sphere:latest | gzip > shop-sphere-image.tar.gz
+        echo "✅ Docker image saved: $(ls -lh shop-sphere-image.tar.gz)"
+    
+    - name: Create deployment package
+      run: |
+        echo "📦 Creating deployment package..."
+        # 创建部署包，包含现有的配置文件
+        mkdir -p deploy-package
+        cp deploy/docker/docker-compose.prod.yml deploy-package/
+        cp -r deploy/nginx deploy-package/nginx
+        cp -r deploy/supervisor deploy-package/supervisor
+        cp deploy/scripts/configure-docker-mirrors.sh deploy-package/
+        
+        # 创建部署脚本
+        cat > deploy-package/deploy.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        echo "🚀 开始部署到ECS服务器..."
+        
+        PROJECT_DIR="/opt/shop-sphere"
+        
+        # 停止当前服务
+        if [ -f $PROJECT_DIR/docker-compose.prod.yml ]; then
+          echo "⏸️ 停止当前服务..."
+          cd $PROJECT_DIR && docker-compose -f docker-compose.prod.yml down || true
+        fi
+        
+        # 创建项目目录
+        mkdir -p $PROJECT_DIR
+        cd $PROJECT_DIR
+        
+        # 备份旧镜像
+        if docker images shop-sphere:latest -q | grep -q .; then
+          echo "💾 备份旧镜像..."
+          docker tag shop-sphere:latest shop-sphere:backup-$(date +%Y%m%d_%H%M%S) || true
+        fi
+        
+        # 加载新镜像
+        echo "📦 加载新Docker镜像..."
+        docker load < /tmp/shop-sphere-image.tar.gz
+        
+        # 复制配置文件
+        cp /tmp/deploy-package/docker-compose.prod.yml .
+        cp -r /tmp/deploy-package/nginx .
+        cp -r /tmp/deploy-package/supervisor .
+        
+        # 创建必要的目录
+        mkdir -p uploads logs/nginx logs/supervisor mysql/conf.d redis
+        
+        # 创建环境变量文件
+        echo "⚙️ 创建环境变量文件..."
+        cat > .env << 'ENVEOF'
+        # 数据库配置
+        MYSQL_DATABASE=shopsphere
+        MYSQL_USER=shopsphere
+        MYSQL_PASSWORD=${MYSQL_PASSWORD}
+        MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+        
+        # OSS配置
+        OSS_ACCESS_KEY_ID=${OSS_ACCESS_KEY_ID}
+        OSS_ACCESS_KEY_SECRET=${OSS_ACCESS_KEY_SECRET}
+        OSS_BUCKET_NAME=${OSS_BUCKET_NAME}
+        OSS_ENDPOINT=${OSS_ENDPOINT}
+        
+        # JWT配置
+        JWT_SECRET_KEY=${JWT_SECRET_KEY}
+        
+        # 应用配置
+        ENVIRONMENT=production
+        DEBUG=false
+        HOST=0.0.0.0
+        PORT=8000
+        SERVER_ENVIRONMENT=PRODUCTION
+        PYTHONPATH=/app
+        ENVEOF
+        
+        # 替换环境变量占位符
+        sed -i "s/\${MYSQL_PASSWORD}/$MYSQL_PASSWORD/g" .env
+        sed -i "s/\${MYSQL_ROOT_PASSWORD}/$MYSQL_ROOT_PASSWORD/g" .env
+        sed -i "s/\${OSS_ACCESS_KEY_ID}/$OSS_ACCESS_KEY_ID/g" .env
+        sed -i "s/\${OSS_ACCESS_KEY_SECRET}/$OSS_ACCESS_KEY_SECRET/g" .env
+        sed -i "s/\${OSS_BUCKET_NAME}/$OSS_BUCKET_NAME/g" .env
+        sed -i "s/\${OSS_ENDPOINT}/$OSS_ENDPOINT/g" .env
+        sed -i "s/\${JWT_SECRET_KEY}/$JWT_SECRET_KEY/g" .env
+        
+        # 启动服务
+        echo "🚀 启动服务..."
+        docker-compose -f docker-compose.prod.yml up -d
+        
+        # 等待服务启动
+        echo "⏳ 等待服务启动..."
+        sleep 30
+        
+        # 健康检查
+        echo "🔍 执行健康检查..."
+        for i in {1..12}; do
+          if docker-compose -f docker-compose.prod.yml exec -T web curl -f http://localhost/health; then
+            echo "✅ 服务启动成功！"
+            break
+          else
+            echo "⏳ 等待服务启动... ($i/12)"
+            sleep 10
+          fi
+          
+          if [ $i -eq 12 ]; then
+            echo "❌ 服务启动失败，查看日志："
+            docker-compose -f docker-compose.prod.yml logs --tail=50
+            exit 1
+          fi
+        done
+        
+        echo "🎉 部署完成！"
+        docker-compose -f docker-compose.prod.yml ps
+        EOF
+        
+        chmod +x deploy-package/deploy.sh
+        
+        # 打包配置文件
+        tar -czf deploy-config.tar.gz -C deploy-package .
+        echo "✅ Deployment package created: $(ls -lh deploy-config.tar.gz)"
+    
+    - name: Transfer Docker image to ECS
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.ECS_HOST }}
+        username: ${{ secrets.ECS_USERNAME }}
+        key: ${{ secrets.ECS_SSH_KEY }}
+        source: "shop-sphere-image.tar.gz"
+        target: "/tmp/"
+        timeout: 600s
+    
+    - name: Transfer deployment package to ECS
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.ECS_HOST }}
+        username: ${{ secrets.ECS_USERNAME }}
+        key: ${{ secrets.ECS_SSH_KEY }}
+        source: "deploy-config.tar.gz"
+        target: "/tmp/"
+    
     - name: Deploy to ECS
       uses: appleboy/ssh-action@v1.0.0
       with:
         host: ${{ secrets.ECS_HOST }}
         username: ${{ secrets.ECS_USERNAME }}
         key: ${{ secrets.ECS_SSH_KEY }}
+        timeout: 600s
         script: |
-          # 设置项目目录
-          PROJECT_DIR="/opt/shop-sphere"
-          REPO_URL="https://github.com/darkTianTian/shop-sphere.git"
-          
-          # 创建项目目录
-          mkdir -p $PROJECT_DIR
-          cd $PROJECT_DIR
-          
-          # 备份当前服务
-          if [ -f docker-compose.prod.yml ]; then
-            echo "停止当前服务..."
-            docker-compose -f docker-compose.prod.yml down || true
+          # 配置Docker镜像源（首次部署时）
+          if [ ! -f /etc/docker/daemon.json ]; then
+            echo "🔧 配置Docker镜像源..."
+            mkdir -p /tmp/deploy-package
+            cd /tmp
+            tar -xzf deploy-config.tar.gz -C deploy-package
+            chmod +x /tmp/deploy-package/configure-docker-mirrors.sh
+            /tmp/deploy-package/configure-docker-mirrors.sh
           fi
           
-          # 拉取最新代码
-          if [ -d ".git" ]; then
-            echo "更新代码..."
-            git fetch origin
-            git reset --hard origin/main
-            git clean -fd
-          else
-            echo "克隆代码..."
-            git clone $REPO_URL .
-          fi
+          # 解压部署包
+          mkdir -p /tmp/deploy-package
+          cd /tmp
+          tar -xzf deploy-config.tar.gz -C deploy-package
           
-          # 创建环境变量文件
-          echo "创建环境变量文件..."
-          cat > .env << EOF
-          # 数据库配置
-          DATABASE_URL=postgresql://postgres:${{ secrets.DB_PASSWORD }}@db:5432/shop_sphere
+          # 设置环境变量并执行部署
+          export MYSQL_PASSWORD="${{ secrets.DB_PASSWORD }}"
+          export MYSQL_ROOT_PASSWORD="${{ secrets.DB_PASSWORD }}"
+          export OSS_ACCESS_KEY_ID="${{ secrets.OSS_ACCESS_KEY_ID }}"
+          export OSS_ACCESS_KEY_SECRET="${{ secrets.OSS_ACCESS_KEY_SECRET }}"
+          export OSS_BUCKET_NAME="${{ secrets.OSS_BUCKET_NAME }}"
+          export OSS_ENDPOINT="${{ secrets.OSS_ENDPOINT }}"
+          export JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}"
           
-          # OSS配置
-          OSS_ACCESS_KEY_ID=${{ secrets.OSS_ACCESS_KEY_ID }}
-          OSS_ACCESS_KEY_SECRET=${{ secrets.OSS_ACCESS_KEY_SECRET }}
-          OSS_BUCKET_NAME=${{ secrets.OSS_BUCKET_NAME }}
-          OSS_ENDPOINT=${{ secrets.OSS_ENDPOINT }}
+          # 执行部署脚本
+          /tmp/deploy-package/deploy.sh
           
-          # JWT配置
-          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+          # 清理临时文件
+          rm -f /tmp/shop-sphere-image.tar.gz
+          rm -f /tmp/deploy-config.tar.gz
+          rm -rf /tmp/deploy-package
           
-          # 应用配置
-          ENVIRONMENT=production
-          DEBUG=false
-          HOST=0.0.0.0
-          PORT=8000
-          EOF
-          
-          # 创建生产环境docker-compose文件
-          echo "创建Docker Compose配置..."
-          cat > docker-compose.prod.yml << 'EOF'
-          version: '3.8'
-          
-          services:
-            app:
-              build:
-                context: .
-                dockerfile: deploy/docker/Dockerfile.prod
-              container_name: shop-sphere-app
-              ports:
-                - "80:80"
-              env_file:
-                - .env
-              depends_on:
-                - db
-                - redis
-              restart: unless-stopped
-              volumes:
-                - ./app:/app/app
-                - ./static:/app/static
-              healthcheck:
-                test: ["CMD", "curl", "-f", "http://localhost/health"]
-                interval: 30s
-                timeout: 10s
-                retries: 3
-                start_period: 40s
-          
-            db:
-              image: postgres:13
-              container_name: shop-sphere-db
-              environment:
-                POSTGRES_DB: shop_sphere
-                POSTGRES_USER: postgres
-                POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
-              volumes:
-                - postgres_data:/var/lib/postgresql/data
-              ports:
-                - "5432:5432"
-              restart: unless-stopped
-              healthcheck:
-                test: ["CMD-SHELL", "pg_isready -U postgres"]
-                interval: 10s
-                timeout: 5s
-                retries: 5
-          
-            redis:
-              image: redis:7-alpine
-              container_name: shop-sphere-redis
-              restart: unless-stopped
-              ports:
-                - "6379:6379"
-              healthcheck:
-                test: ["CMD", "redis-cli", "ping"]
-                interval: 10s
-                timeout: 5s
-                retries: 3
-          
-          volumes:
-            postgres_data:
-          EOF
-          
-          # 构建并启动服务
-          echo "构建并启动服务..."
-          docker-compose -f docker-compose.prod.yml build --no-cache
-          docker-compose -f docker-compose.prod.yml up -d
-          
-          # 等待服务启动
-          echo "等待服务启动..."
-          sleep 60
-          
-          # 检查服务状态
-          echo "检查服务状态..."
-          docker-compose -f docker-compose.prod.yml ps
-          
-          # 检查服务健康状态
-          echo "检查应用健康状态..."
-          for i in {1..10}; do
-            if curl -f http://localhost/health 2>/dev/null; then
-              echo "✅ 应用启动成功！"
-              break
-            else
-              echo "⏳ 等待应用启动... ($i/10)"
-              sleep 10
-            fi
-          done
-          
-          # 显示服务日志
-          echo "最近的应用日志:"
-          docker-compose -f docker-compose.prod.yml logs --tail=20 app
-          
-          # 清理未使用的镜像和容器
-          echo "清理资源..."
-          docker system prune -f
-          
-          echo "🎉 部署完成！访问 http://${{ secrets.ECS_HOST }} 查看应用" 
+          echo "🎉 部署完成！服务状态："
+          cd /opt/shop-sphere && docker-compose -f docker-compose.prod.yml ps 
