@@ -40,20 +40,42 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Build Docker image
+    - name: Get current date
+      id: date
+      run: echo "::set-output name=date::$(date +'%Y%m%d_%H%M%S')"
+    
+    - name: Login to Aliyun Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: registry.cn-beijing.aliyuncs.com
+        username: ${{ secrets.ALIYUN_REGISTRY_USERNAME }}
+        password: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
+    
+    - name: Build and push Docker image
       run: |
         echo "🐳 Building Docker image..."
         docker build -f deploy/docker/Dockerfile.prod -t shop-sphere:latest .
-        echo "✅ Docker image built successfully"
         
-        # 保存镜像为tar文件
-        docker save shop-sphere:latest | gzip > shop-sphere-image.tar.gz
-        echo "✅ Docker image saved: $(ls -lh shop-sphere-image.tar.gz)"
+        # 标记镜像版本
+        VERSION="${{ steps.date.outputs.date }}"
+        REGISTRY_URL="registry.cn-beijing.aliyuncs.com/xiaoliji/shop"
+        
+        echo "🏷️ Tagging image with version: $VERSION"
+        docker tag shop-sphere:latest $REGISTRY_URL:$VERSION
+        docker tag shop-sphere:latest $REGISTRY_URL:latest
+        
+        echo "⬆️ Pushing images to Aliyun Registry..."
+        docker push $REGISTRY_URL:$VERSION
+        docker push $REGISTRY_URL:latest
+        
+        echo "✅ Image pushed successfully: $REGISTRY_URL:$VERSION"
+        
+        # 保存版本号供后续使用
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
     
     - name: Create deployment package
       run: |
         echo "📦 Creating deployment package..."
-        # 创建部署包，包含现有的配置文件
         mkdir -p deploy-package
         cp deploy/docker/docker-compose.prod.yml deploy-package/
         cp -r deploy/nginx deploy-package/nginx
@@ -72,21 +94,16 @@ jobs:
         if command -v podman &> /dev/null; then
           echo "🐳 使用Podman环境"
           CONTAINER_CMD="podman"
-          
-          # 直接使用docker-compose通过Podman socket，避免podman-compose的Python版本问题
           COMPOSE_CMD="docker-compose"
           
-          # 确保Podman socket可用
+          # 配置Podman socket
           echo "🔌 配置Podman socket..."
           sudo systemctl enable --now podman.socket || true
           sleep 3
           
-          # 设置DOCKER_HOST环境变量
           export DOCKER_HOST="unix:///run/podman/podman.sock"
           
-          # 验证连接
           if ! docker-compose version &> /dev/null; then
-            echo "⚠️ docker-compose无法连接Podman socket，尝试创建链接..."
             sudo mkdir -p /var/run
             sudo ln -sf /run/podman/podman.sock /var/run/docker.sock || true
             unset DOCKER_HOST
@@ -99,6 +116,10 @@ jobs:
         
         echo "📦 使用容器命令: $CONTAINER_CMD, 编排命令: $COMPOSE_CMD"
         
+        # 登录阿里云容器镜像服务（使用内网地址）
+        echo "🔑 登录阿里云容器镜像服务..."
+        $CONTAINER_CMD login --username=${ALIYUN_REGISTRY_USERNAME} --password=${ALIYUN_REGISTRY_PASSWORD} registry-vpc.cn-beijing.aliyuncs.com
+        
         # 停止当前服务
         if [ -f $PROJECT_DIR/docker-compose.prod.yml ]; then
           echo "⏸️ 停止当前服务..."
@@ -109,15 +130,14 @@ jobs:
         mkdir -p $PROJECT_DIR
         cd $PROJECT_DIR
         
-        # 备份旧镜像
-        if $CONTAINER_CMD images shop-sphere:latest -q | grep -q .; then
-          echo "💾 备份旧镜像..."
-          $CONTAINER_CMD tag shop-sphere:latest shop-sphere:backup-$(date +%Y%m%d_%H%M%S) || true
-        fi
+        # 拉取最新镜像（使用内网地址）
+        echo "⬇️ 拉取最新镜像..."
+        REGISTRY_URL="registry-vpc.cn-beijing.aliyuncs.com/xiaoliji/shop"
+        VERSION=${DEPLOY_VERSION:-latest}
         
-        # 加载新镜像
-        echo "📦 加载新Docker镜像..."
-        $CONTAINER_CMD load < /tmp/shop-sphere-image.tar.gz
+        echo "📦 拉取版本: $VERSION"
+        $CONTAINER_CMD pull $REGISTRY_URL:$VERSION
+        $CONTAINER_CMD tag $REGISTRY_URL:$VERSION shop-sphere:latest
         
         # 预拉取nginx镜像（使用阿里云优化版本）
         echo "🐳 预拉取nginx镜像..."
@@ -226,16 +246,6 @@ jobs:
         tar -czf deploy-config.tar.gz -C deploy-package .
         echo "✅ Deployment package created: $(ls -lh deploy-config.tar.gz)"
     
-    - name: Transfer Docker image to ECS
-      uses: appleboy/scp-action@v0.1.4
-      with:
-        host: ${{ secrets.ECS_HOST }}
-        username: ${{ secrets.ECS_USERNAME }}
-        key: ${{ secrets.ECS_SSH_KEY }}
-        source: "shop-sphere-image.tar.gz"
-        target: "/tmp/"
-        timeout: 600s
-    
     - name: Transfer deployment package to ECS
       uses: appleboy/scp-action@v0.1.4
       with:
@@ -252,48 +262,12 @@ jobs:
         username: ${{ secrets.ECS_USERNAME }}
         key: ${{ secrets.ECS_SSH_KEY }}
         timeout: 600s
+        envs: VERSION,GITHUB_SHA
         script: |
-          # 初始化Podman环境（如果使用Podman）
-          if command -v podman &> /dev/null; then
-            echo "🔧 初始化Podman环境..."
-            
-            # 启动Podman socket服务
-            echo "🔌 配置Podman socket服务..."
-            sudo systemctl enable --now podman.socket || true
-            
-            # 等待socket启动
-            sleep 5
-            
-            # 创建docker socket链接
-            if [ ! -S /var/run/docker.sock ]; then
-              sudo ln -sf /run/podman/podman.sock /var/run/docker.sock || true
-            fi
-            
-            # 验证socket连接
-            if sudo test -S /run/podman/podman.sock; then
-              echo "✅ Podman socket服务已启动"
-            else
-              echo "⚠️ Podman socket服务启动失败，尝试用户模式..."
-              systemctl --user enable --now podman.socket || true
-            fi
-            
-            # 验证docker-compose可以通过socket工作
-            echo "🔍 验证docker-compose与Podman的兼容性..."
-            export DOCKER_HOST="unix:///run/podman/podman.sock"
-            if docker-compose version; then
-              echo "✅ docker-compose可以通过Podman socket工作"
-            else
-              echo "⚠️ 将使用直接的socket链接方式"
-              unset DOCKER_HOST
-            fi
-          fi
-          
-          # 解压部署包
-          mkdir -p /tmp/deploy-package
-          cd /tmp
-          tar -xzf deploy-config.tar.gz -C deploy-package
-          
-          # 设置环境变量并执行部署
+          # 设置环境变量
+          export ALIYUN_REGISTRY_USERNAME="${{ secrets.ALIYUN_REGISTRY_USERNAME }}"
+          export ALIYUN_REGISTRY_PASSWORD="${{ secrets.ALIYUN_REGISTRY_PASSWORD }}"
+          export DEPLOY_VERSION="${{ env.VERSION }}"
           export DB_HOST="${{ secrets.DB_HOST }}"
           export DB_PORT="${{ secrets.DB_PORT }}"
           export DB_NAME="${{ secrets.DB_NAME }}"
@@ -308,11 +282,15 @@ jobs:
           export OSS_ENDPOINT="${{ secrets.OSS_ENDPOINT }}"
           export JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}"
           
+          # 解压部署包
+          mkdir -p /tmp/deploy-package
+          cd /tmp
+          tar -xzf deploy-config.tar.gz -C deploy-package
+          
           # 执行部署脚本
           /tmp/deploy-package/deploy.sh
           
           # 清理临时文件
-          rm -f /tmp/shop-sphere-image.tar.gz
           rm -f /tmp/deploy-config.tar.gz
           rm -rf /tmp/deploy-package
           
@@ -321,7 +299,7 @@ jobs:
           
           # 检测容器运行时并显示服务状态
           if command -v podman &> /dev/null; then
-            echo "🐳 使用Podman环境显示服务状态"
+            echo "�� 使用Podman环境显示服务状态"
             export DOCKER_HOST="unix:///run/podman/podman.sock"
             docker-compose -f docker-compose.prod.yml ps || {
               echo "⚠️ 通过socket连接失败，尝试直接连接..."
