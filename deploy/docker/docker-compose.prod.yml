@@ -10,8 +10,7 @@ services:
       - /opt/shop-sphere/logs/supervisor:/var/log/supervisor
       - /opt/shop-sphere/.env:/app/.env:ro
     ports:
-      - "80:80"
-      - "443:443"
+      - "8000:8000" # 直接暴露应用端口
     environment:
       - SERVER_ENVIRONMENT=PRODUCTION
       - PYTHONPATH=/app
@@ -20,53 +19,14 @@ services:
     networks:
       - shopsphere-network
     restart: unless-stopped
-    depends_on:
-      - mysql
-      - redis
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost/health" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
 
-  mysql:
-    image: mysql:8.0
-    container_name: shopsphere-mysql-prod
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - /opt/shop-sphere/mysql/conf.d:/etc/mysql/conf.d:ro
-    environment:
-      - MYSQL_DATABASE=${MYSQL_DATABASE:-shopsphere}
-      - MYSQL_USER=${MYSQL_USER:-shopsphere}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-shopsphere123}
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root123}
-    networks:
-      - shopsphere-network
-    command: --default-authentication-plugin=mysql_native_password --innodb-buffer-pool-size=256M
-    restart: unless-stopped
-    healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
-      timeout: 20s
-      retries: 10
-
-  redis:
-    image: redis:7.0-alpine
-    container_name: shopsphere-redis-prod
-    volumes:
-      - redis_data:/data
-      - /opt/shop-sphere/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
-    networks:
-      - shopsphere-network
-    command: redis-server /usr/local/etc/redis/redis.conf --appendonly yes
-    restart: unless-stopped
-    healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
-      interval: 30s
-      timeout: 3s
-      retries: 5
-
-  # 可选：Nginx反向代理（如果需要SSL终端或负载均衡）
+  # Nginx反向代理（处理静态文件和SSL）
   nginx:
     image: nginx:alpine
     container_name: shopsphere-nginx
@@ -77,20 +37,13 @@ services:
       - /opt/shop-sphere/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - /opt/shop-sphere/nginx/ssl:/etc/nginx/ssl:ro
       - /opt/shop-sphere/logs/nginx:/var/log/nginx
+      - /opt/shop-sphere/uploads:/var/www/uploads:ro # 静态文件服务
     depends_on:
       - web
     networks:
       - shopsphere-network
     restart: unless-stopped
-    profiles:
-      - with-nginx
 
 networks:
   shopsphere-network:
     driver: bridge
-
-volumes:
-  mysql_data:
-    driver: local
-  redis_data:
-    driver: local

@@ -32,7 +32,14 @@ async def health_check():
     try:
         redis_host = os.getenv("REDIS_HOST", "localhost")
         redis_port = int(os.getenv("REDIS_PORT", "6379"))
-        r = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
+        redis_password = os.getenv("REDIS_PASSWORD")
+        
+        # 创建Redis连接，支持密码
+        if redis_password:
+            r = redis.Redis(host=redis_host, port=redis_port, password=redis_password, decode_responses=True)
+        else:
+            r = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
+        
         r.ping()
         health_status["checks"]["redis"] = "healthy"
     except Exception as e:

@@ -24,9 +24,9 @@ class BaseSettings:
     def get_db_settings(cls) -> DatabaseSettings:
         """获取数据库配置"""
         return DatabaseSettings(
-            host=os.environ.get('MYSQL_HOST', 'localhost'),
-            port=int(os.environ.get('MYSQL_PORT', '3306')),
-            database=os.environ.get('MYSQL_DATABASE', 'shopsphere'),
-            user=os.environ.get('MYSQL_USER', 'shopsphere'),
-            password=os.environ.get('MYSQL_PASSWORD', 'shopsphere123')
+            host=os.environ.get('DB_HOST') or os.environ.get('MYSQL_HOST', 'localhost'),
+            port=int(os.environ.get('DB_PORT') or os.environ.get('MYSQL_PORT', '3306')),
+            database=os.environ.get('DB_NAME') or os.environ.get('MYSQL_DATABASE', 'shopsphere'),
+            user=os.environ.get('DB_USER') or os.environ.get('MYSQL_USER', 'shopsphere'),
+            password=os.environ.get('DB_PASSWORD') or os.environ.get('MYSQL_PASSWORD', 'shopsphere123')
         ) 
