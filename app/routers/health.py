@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import text
-from app.database import get_db
+from sqlmodel import Session
+from app.internal.db import engine
 import redis
 import os
 from datetime import datetime
@@ -21,8 +22,8 @@ async def health_check():
     
     # 检查数据库连接
     try:
-        db = next(get_db())
-        db.execute(text("SELECT 1"))
+        with Session(engine) as session:
+            session.execute(text("SELECT 1"))
         health_status["checks"]["database"] = "healthy"
     except Exception as e:
         health_status["checks"]["database"] = f"unhealthy: {str(e)}"
