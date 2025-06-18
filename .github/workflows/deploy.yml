@@ -56,10 +56,8 @@ jobs:
         # 创建部署包，包含现有的配置文件
         mkdir -p deploy-package
         cp deploy/docker/docker-compose.prod.yml deploy-package/
-        cp deploy/docker/docker-compose.prod.fallback.yml deploy-package/
         cp -r deploy/nginx deploy-package/nginx
         cp -r deploy/supervisor deploy-package/supervisor
-        cp deploy/scripts/configure-docker-mirrors.sh deploy-package/
         
         # 创建部署脚本
         cat > deploy-package/deploy.sh << 'EOF'
@@ -121,24 +119,17 @@ jobs:
         echo "📦 加载新Docker镜像..."
         $CONTAINER_CMD load < /tmp/shop-sphere-image.tar.gz
         
-        # 预拉取nginx镜像（避免启动时拉取失败）
+        # 预拉取nginx镜像（使用阿里云优化版本）
         echo "🐳 预拉取nginx镜像..."
-        for i in {1..3}; do
-          if $CONTAINER_CMD pull nginx:alpine; then
-            echo "✅ nginx镜像拉取成功"
-            break
-          else
-            echo "⚠️ nginx镜像拉取失败，重试 ($i/3)..."
-            sleep 10
-            if [ $i -eq 3 ]; then
-              echo "⚠️ nginx镜像预拉取失败，将在启动时重试"
-            fi
-          fi
-        done
+        if $CONTAINER_CMD pull alibaba-cloud-linux-3-registry.cn-hangzhou.cr.aliyuncs.com/alinux3/nginx_optimized; then
+          echo "✅ nginx镜像拉取成功"
+        else
+          echo "❌ nginx镜像拉取失败"
+          exit 1
+        fi
         
         # 复制配置文件
         cp /tmp/deploy-package/docker-compose.prod.yml .
-        cp /tmp/deploy-package/docker-compose.prod.fallback.yml .
         cp -r /tmp/deploy-package/nginx .
         cp -r /tmp/deploy-package/supervisor .
         
@@ -195,28 +186,13 @@ jobs:
         
         # 启动服务
         echo "🚀 启动服务..."
-        COMPOSE_FILE="docker-compose.prod.yml"
-        
-        for i in {1..2}; do
-          if $COMPOSE_CMD -f $COMPOSE_FILE up -d; then
-            echo "✅ 服务启动成功（使用 $COMPOSE_FILE）"
-            break
-          else
-            echo "⚠️ 使用 $COMPOSE_FILE 启动失败..."
-            $COMPOSE_CMD -f $COMPOSE_FILE down || true
-            
-            if [ $i -eq 1 ] && [ -f "docker-compose.prod.fallback.yml" ]; then
-              echo "🔄 切换到备用配置..."
-              COMPOSE_FILE="docker-compose.prod.fallback.yml"
-              sleep 10
-            else
-              echo "❌ 所有配置都启动失败，查看详细错误："
-              $COMPOSE_CMD -f docker-compose.prod.yml logs || true
-              $COMPOSE_CMD -f docker-compose.prod.fallback.yml logs || true
-              exit 1
-            fi
-          fi
-        done
+        if $COMPOSE_CMD -f docker-compose.prod.yml up -d; then
+          echo "✅ 服务启动成功"
+        else
+          echo "❌ 服务启动失败，查看详细错误："
+          $COMPOSE_CMD -f docker-compose.prod.yml logs
+          exit 1
+        fi
         
         # 等待服务启动
         echo "⏳ 等待服务启动..."
@@ -225,7 +201,7 @@ jobs:
         # 健康检查
         echo "🔍 执行健康检查..."
         for i in {1..12}; do
-          if $COMPOSE_CMD -f $COMPOSE_FILE exec -T web curl -f http://localhost:8000/health; then
+          if $COMPOSE_CMD -f docker-compose.prod.yml exec -T web curl -f http://localhost:8000/health; then
             echo "✅ 服务启动成功！"
             break
           else
@@ -235,13 +211,13 @@ jobs:
           
           if [ $i -eq 12 ]; then
             echo "❌ 服务启动失败，查看日志："
-            $COMPOSE_CMD -f $COMPOSE_FILE logs --tail=50
+            $COMPOSE_CMD -f docker-compose.prod.yml logs --tail=50
             exit 1
           fi
         done
         
         echo "🎉 部署完成！"
-        $COMPOSE_CMD -f $COMPOSE_FILE ps
+        $COMPOSE_CMD -f docker-compose.prod.yml ps
         EOF
         
         chmod +x deploy-package/deploy.sh
@@ -310,16 +286,6 @@ jobs:
               echo "⚠️ 将使用直接的socket链接方式"
               unset DOCKER_HOST
             fi
-          fi
-          
-          # 配置Docker镜像源（首次部署时）
-          if [ ! -f /etc/docker/daemon.json ]; then
-            echo "🔧 配置Docker镜像源..."
-            mkdir -p /tmp/deploy-package
-            cd /tmp
-            tar -xzf deploy-config.tar.gz -C deploy-package
-            chmod +x /tmp/deploy-package/configure-docker-mirrors.sh
-            /tmp/deploy-package/configure-docker-mirrors.sh
           fi
           
           # 解压部署包
