@@ -1,7 +1,7 @@
 from typing import Union
 
 from fastapi import FastAPI
-from app.routers import video
+from app.routers import video, health
 
 app = FastAPI(
     title="Shop Sphere API",
@@ -11,6 +11,7 @@ app = FastAPI(
 
 # 包含路由器
 app.include_router(video.router)
+app.include_router(health.router)
 
 
 @app.get("/")

@@ -1,0 +1,63 @@
+from fastapi import APIRouter, HTTPException
+from sqlalchemy import text
+from app.database import get_db
+import redis
+import os
+from datetime import datetime
+
+router = APIRouter()
+
+@router.get("/health")
+async def health_check():
+    """
+    健康检查端点
+    检查数据库连接、Redis连接和基本服务状态
+    """
+    health_status = {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "checks": {}
+    }
+    
+    # 检查数据库连接
+    try:
+        db = next(get_db())
+        db.execute(text("SELECT 1"))
+        health_status["checks"]["database"] = "healthy"
+    except Exception as e:
+        health_status["checks"]["database"] = f"unhealthy: {str(e)}"
+        health_status["status"] = "unhealthy"
+    
+    # 检查Redis连接
+    try:
+        redis_host = os.getenv("REDIS_HOST", "localhost")
+        redis_port = int(os.getenv("REDIS_PORT", "6379"))
+        r = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
+        r.ping()
+        health_status["checks"]["redis"] = "healthy"
+    except Exception as e:
+        health_status["checks"]["redis"] = f"unhealthy: {str(e)}"
+        health_status["status"] = "unhealthy"
+    
+    # 检查OSS配置（可选）
+    try:
+        from app.config.oss_config import OSSConfig
+        if OSSConfig.is_configured():
+            health_status["checks"]["oss"] = "configured"
+        else:
+            health_status["checks"]["oss"] = "not_configured"
+    except Exception as e:
+        health_status["checks"]["oss"] = f"error: {str(e)}"
+    
+    if health_status["status"] == "unhealthy":
+        raise HTTPException(status_code=503, detail=health_status)
+    
+    return health_status
+
+@router.get("/ready")
+async def readiness_check():
+    """
+    就绪检查端点
+    检查应用是否准备好接受请求
+    """
+    return {"status": "ready", "timestamp": datetime.now().isoformat()} 
