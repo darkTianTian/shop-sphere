@@ -38,9 +38,8 @@ COPY deploy/nginx/default /etc/nginx/sites-available/default
 # Create and set working directory
 WORKDIR /app
 
-# Copy application code
+# Copy application code (includes app/scripts directory)
 COPY app /app/app
-COPY scripts /app/scripts
 
 # Copy requirements file
 COPY requirements.txt .
