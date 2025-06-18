@@ -26,9 +26,9 @@ services:
       retries: 3
       start_period: 40s
 
-  # Nginx反向代理（处理静态文件和SSL）
+  # Nginx反向代理（使用阿里云优化镜像）
   nginx:
-    image: nginx:alpine
+    image: alibaba-cloud-linux-3-registry.cn-hangzhou.cr.aliyuncs.com/alinux3/nginx_optimized
     container_name: shopsphere-nginx
     ports:
       - "80:80"
