@@ -23,6 +23,11 @@ services:
       - MYSQL_PASSWORD=shopsphere123
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      # 阿里云OSS配置（请替换为实际值）
+      - ALIBABA_CLOUD_ACCESS_KEY_ID=${ALIBABA_CLOUD_ACCESS_KEY_ID:-}
+      - ALIBABA_CLOUD_ACCESS_KEY_SECRET=${ALIBABA_CLOUD_ACCESS_KEY_SECRET:-}
+      - OSS_ENDPOINT=${OSS_ENDPOINT:-}
+      - OSS_BUCKET_NAME=${OSS_BUCKET_NAME:-}
     networks:
       - shopsphere-local-network
     restart: unless-stopped
@@ -65,4 +70,4 @@ networks:
 
 volumes:
   mysql_data:
-  redis_data: 
+  redis_data:

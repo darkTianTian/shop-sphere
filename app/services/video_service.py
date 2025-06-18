@@ -141,7 +141,8 @@ class VideoService:
     
     def convert_to_video_model(self, metadata: Dict[str, Any], item_id: str, sku_id: str, 
                               file_url: str, name: str, description: str = "", 
-                              file_extension: str = "", platform: str = "web", 
+                              file_extension: str = "", oss_object_key: str = "",
+                              file_size: int = 0, platform: str = "web", 
                               author_id: str = "", owner_id: str = "", 
                               source: str = "upload") -> VideoMaterial:
         """
@@ -155,6 +156,8 @@ class VideoService:
             name: 视频素材名称
             description: 视频素材描述
             file_extension: 文件扩展名
+            oss_object_key: OSS对象键
+            file_size: 文件大小
             platform: 平台
             author_id: 作者ID
             owner_id: 所有者ID
@@ -238,7 +241,9 @@ class VideoService:
             platform=platform,
             author_id=author_id,
             owner_id=owner_id,
-            source=source
+            source=source,
+            oss_object_key=oss_object_key,
+            file_size=file_size
         )
         
         return video_material

@@ -63,6 +63,8 @@ class VideoMaterial(BaseModel, table=True):
     file_extension: str = Field(description="文件扩展名", sa_type=sa.String(length=10))
     uuid: str = Field(index=True, description="UUID", default_factory=lambda: uuid.uuid4().hex)
     url: str = Field(index=True, description="视频URL")
+    oss_object_key: str = Field(default="", description="OSS对象键名", sa_type=sa.String(length=512))
+    file_size: int = Field(default=0, description="文件大小（字节）")
     item_id: str = Field(index=True, description="商品ID")
     sku_id: str = Field(index=True, description="SKU ID")
     status: str = Field(description="状态", sa_type=sa.Enum(VideoStatus), default=VideoStatus.DRAFT)

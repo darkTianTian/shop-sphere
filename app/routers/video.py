@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.services.video_service import VideoService
+from app.services.oss_service import OSSService
 
 
 # 配置日志
@@ -23,6 +24,7 @@ router = APIRouter(prefix="/api/v1/video-materials", tags=["video-materials"])
 
 # 视频素材服务实例
 video_service = VideoService(logger=logger)
+oss_service = OSSService(logger=logger)
 
 
 class VideoMaterialUploadResponse(BaseModel):
@@ -85,8 +87,33 @@ async def upload_video_material(
             temp_file.write(content)
             temp_file.flush()
         
-        # 生成文件URL（这里简化处理，实际项目中可能需要上传到云存储）
-        file_url = f"/uploads/videos/{video_file.filename}"
+        # 上传文件到OSS
+        file_url = ""
+        oss_object_key = ""
+        file_size = len(content)
+        
+        if oss_service.is_available():
+            # 上传到OSS
+            success, result, public_url = oss_service.upload_temp_file(
+                temp_file_path, 
+                video_file.filename, 
+                video_file.content_type
+            )
+            
+            if success:
+                oss_object_key = result
+                file_url = public_url
+                logger.info(f"文件上传到OSS成功: {video_file.filename} -> {oss_object_key}")
+            else:
+                logger.error(f"OSS上传失败: {result}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"文件上传失败: {result}"
+                )
+        else:
+            # 降级到本地存储
+            file_url = f"/uploads/videos/{video_file.filename}"
+            logger.warning("OSS不可用，使用本地存储")
         
         # 处理视频文件
         video_material = video_service.process_video_file(
@@ -97,6 +124,8 @@ async def upload_video_material(
             name=video_file.filename,
             description=description,
             file_extension=file_extension,
+            oss_object_key=oss_object_key,
+            file_size=file_size,
             platform=platform,
             author_id=author_id,
             owner_id=owner_id,
@@ -111,6 +140,8 @@ async def upload_video_material(
             "file_extension": video_material.file_extension,
             "uuid": video_material.uuid,
             "url": video_material.url,
+            "oss_object_key": video_material.oss_object_key,
+            "file_size": video_material.file_size,
             "item_id": video_material.item_id,
             "sku_id": video_material.sku_id,
             "status": video_material.status,
@@ -124,7 +155,8 @@ async def upload_video_material(
             "audio_bitrate": video_material.audio_bitrate,
             "audio_channels": video_material.audio_channels,
             "platform": video_material.platform,
-            "source": video_material.source
+            "source": video_material.source,
+            "is_oss_stored": bool(video_material.oss_object_key)  # 标识是否存储在OSS
         }
         
         logger.info(f"视频素材上传成功: {video_file.filename}, 数据库ID: {video_material.id}")
