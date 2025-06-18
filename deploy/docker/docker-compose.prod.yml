@@ -41,7 +41,7 @@ services:
 
   # Nginx反向代理（使用阿里云优化镜像的特殊配置）
   nginx:
-    image: alibaba-cloud-linux-3-registry.cn-hangzhou.cr.aliyuncs.com/alinux3/nginx_optimized:20240221-1.20.1-2.3.0
+    image: alibaba-cloud-linux-3-registry.cn-hangzhou.cr.aliyuncs.com/alinux3/nginx_optimized
     container_name: shopsphere-nginx
     privileged: true
     network_mode: host
