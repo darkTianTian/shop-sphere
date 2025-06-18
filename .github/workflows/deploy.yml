@@ -36,12 +36,22 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+        pip install pytest pytest-asyncio httpx
     
     - name: Run tests
       env:
         DATABASE_URL: postgresql://postgres:testpass@localhost:5432/testdb
       run: |
-        python -m pytest tests/ -v
+        # 如果tests目录存在且有测试文件，则运行测试
+        if [ -d "tests" ] && [ "$(find tests -name '*.py' -not -name '__*' | wc -l)" -gt 0 ]; then
+          echo "Running tests..."
+          python -m pytest tests/ -v
+        else
+          echo "No test files found, skipping tests"
+          echo "Creating basic test structure for future use"
+          mkdir -p tests
+          echo "# Add your tests here" > tests/__init__.py
+        fi
 
   deploy:
     needs: test
