@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 
 # Set environment variable for production
-ENV SERVER_ENVIRONMENT='PRODUCTION'
+ENV SERVER_ENVIRONMENT='PROD'
 
 # Install system dependencies including FFmpeg
 RUN apt-get update && apt-get install -y \

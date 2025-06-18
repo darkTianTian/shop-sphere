@@ -12,7 +12,7 @@ services:
     ports:
       - "8000:8000" # 直接暴露应用端口
     environment:
-      - SERVER_ENVIRONMENT=PRODUCTION
+      - SERVER_ENVIRONMENT=PROD
       - PYTHONPATH=/app
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}
