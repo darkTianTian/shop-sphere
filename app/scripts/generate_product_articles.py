@@ -118,7 +118,7 @@ class ProductArticleGenerator:
                 article_content = {
                     "title": ai_result.get("title", ""),
                     "content": ai_result.get("content", ""),
-                    "tag_ids": ai_result.get("tags", "商品推荐,优质好物"),
+                    "tags": ai_result.get("tags", "商品推荐,优质好物"),
                     "author_name": "deepseek"
                 }
                 
