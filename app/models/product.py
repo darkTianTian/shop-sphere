@@ -568,6 +568,7 @@ class ProductArticle(SQLModel, table=True):
     title: str = Field(description="文章标题")
     content: str = Field(description="文章内容", sa_type=sa.String(length=4096))
     tag_ids: str = Field(description="话题标签ID列表, 逗号分隔", sa_type=sa.String(length=1024))
+    tags: Optional[str] = Field(default="", description="生成文章时的标签，逗号分隔", sa_type=sa.String(length=256))
     owner_id: str = Field(description="文章作者ID")
     author_name: str = Field(description="文章作者名称")
     status: ArticleStatus = Field(

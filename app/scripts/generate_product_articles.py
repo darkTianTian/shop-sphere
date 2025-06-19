@@ -151,7 +151,8 @@ class ProductArticleGenerator:
                     sku_id=product.item_id,  # 如果没有特定SKU，使用item_id
                     title=article_content["title"],
                     content=article_content["content"],
-                    tag_ids=article_content.get("tag_ids", ""),
+                    tag_ids="",  # 保留原字段，暂时为空
+                    tags=article_content.get("tags", ""),  # 使用新的tags字段存储AI生成的标签
                     owner_id="system",  # 系统生成
                     author_name=article_content.get("author_name", "AI助手"),
                     status=ArticleStatus.DRAFT  # 设置为草稿状态
