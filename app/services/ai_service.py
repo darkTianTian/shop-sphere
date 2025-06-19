@@ -8,9 +8,10 @@ import json
 import logging
 from openai import OpenAI
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, time
 from string import Template
 from sqlmodel import Session, select
+import pytz
 
 from app.internal.db import engine
 from app.models.prompt import AIPromptTemplate, PromptType
@@ -38,12 +39,65 @@ class DeepSeekConfig:
         return bool(cls.get_api_key())
 
 
+class ModelStrategy:
+    """模型选择策略"""
+    
+    @staticmethod
+    def get_optimal_model() -> str:
+        """
+        根据当前北京时间选择最优模型
+        
+        Returns:
+            模型名称
+        """
+        # 获取北京时间
+        beijing_tz = pytz.timezone('Asia/Shanghai')
+        beijing_time = datetime.now(beijing_tz).time()
+        
+        # 定义低峰时段：00:30 - 08:30 (北京时间)
+        low_peak_start = time(0, 30)  # 00:30
+        low_peak_end = time(8, 30)    # 08:30
+        
+        # 判断是否在低峰时段
+        if low_peak_start <= beijing_time <= low_peak_end:
+            return "deepseek-reasoner"  # 低峰时段使用推理模型，成本更低
+        else:
+            return "deepseek-chat"      # 高峰时段使用聊天模型，响应更快
+    
+    @staticmethod
+    def get_model_info(model_name: str) -> Dict[str, Any]:
+        """
+        获取模型信息
+        
+        Args:
+            model_name: 模型名称
+            
+        Returns:
+            模型配置信息
+        """
+        model_configs = {
+            "deepseek-chat": {
+                "max_tokens": 2000,
+                "temperature": 0.7,
+                "description": "标准聊天模型，响应快速"
+            },
+            "deepseek-reasoner": {
+                "max_tokens": 4000,
+                "temperature": 0.6,
+                "description": "推理模型，成本更低，适合复杂任务"
+            }
+        }
+        
+        return model_configs.get(model_name, model_configs["deepseek-chat"])
+
+
 class DeepSeekAIService:
     """DeepSeek AI 服务"""
     
     def __init__(self, logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger(__name__)
         self.config = DeepSeekConfig
+        self.model_strategy = ModelStrategy()
         
         if not self.config.is_configured():
             self.logger.error("DeepSeek AI 未配置，无法使用AI生成功能")
@@ -85,18 +139,27 @@ class DeepSeekAIService:
             if not prompt:
                 self.logger.error("无法构建提示词")
                 return None
-                
-            self.logger.info(f"调用 DeepSeek API 生成文章")
+            
+            # 选择最优模型
+            model_name = self.model_strategy.get_optimal_model()
+            model_config = self.model_strategy.get_model_info(model_name)
+            
+            # 获取北京时间用于日志
+            beijing_tz = pytz.timezone('Asia/Shanghai')
+            beijing_time = datetime.now(beijing_tz).strftime('%H:%M:%S')
+            
+            self.logger.info(f"调用 DeepSeek API - 模型: {model_name} ({model_config['description']}) - 北京时间: {beijing_time}")
+            
             client = OpenAI(api_key=self.config.get_api_key(), base_url=self.config.get_base_url())
             response = client.chat.completions.create(
-                model="deepseek-chat",
+                model=model_name,
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=2000,
-                temperature=0.7,
+                max_tokens=model_config["max_tokens"],
+                temperature=model_config["temperature"],
                 response_format={"type": "json_object"}
             )
             
-            self.logger.info(f"response: {response}")
+            self.logger.info(f"API 调用成功 - 模型: {model_name}, respnose: {response}")
             
             # 解析响应
             article_content = self._parse_ai_response(response.choices[0].message.content)
