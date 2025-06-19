@@ -177,6 +177,10 @@ jobs:
         OSS_BUCKET_NAME=${OSS_BUCKET_NAME}
         OSS_ENDPOINT=${OSS_ENDPOINT}
         
+        # DeepSeek AI配置
+        DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+        DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL}
+        
         # JWT配置
         JWT_SECRET_KEY=${JWT_SECRET_KEY}
         
@@ -202,6 +206,8 @@ jobs:
         sed -i "s/\${OSS_ACCESS_KEY_SECRET}/$OSS_ACCESS_KEY_SECRET/g" .env
         sed -i "s/\${OSS_BUCKET_NAME}/$OSS_BUCKET_NAME/g" .env
         sed -i "s/\${OSS_ENDPOINT}/$OSS_ENDPOINT/g" .env
+        sed -i "s/\${DEEPSEEK_API_KEY}/$DEEPSEEK_API_KEY/g" .env
+        sed -i "s/\${DEEPSEEK_BASE_URL}/$DEEPSEEK_BASE_URL/g" .env
         sed -i "s/\${JWT_SECRET_KEY}/$JWT_SECRET_KEY/g" .env
         
         # 启动服务
@@ -280,6 +286,8 @@ jobs:
           export OSS_ACCESS_KEY_SECRET="${{ secrets.OSS_ACCESS_KEY_SECRET }}"
           export OSS_BUCKET_NAME="${{ secrets.OSS_BUCKET_NAME }}"
           export OSS_ENDPOINT="${{ secrets.OSS_ENDPOINT }}"
+          export DEEPSEEK_API_KEY="${{ secrets.DEEPSEEK_API_KEY }}"
+          export DEEPSEEK_BASE_URL="${{ secrets.DEEPSEEK_BASE_URL }}"
           export JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}"
           
           # 解压部署包
@@ -299,7 +307,7 @@ jobs:
           
           # 检测容器运行时并显示服务状态
           if command -v podman &> /dev/null; then
-            echo "�� 使用Podman环境显示服务状态"
+            echo "🐳 使用Podman环境显示服务状态"
             export DOCKER_HOST="unix:///run/podman/podman.sock"
             docker-compose -f docker-compose.prod.yml ps || {
               echo "⚠️ 通过socket连接失败，尝试直接连接..."

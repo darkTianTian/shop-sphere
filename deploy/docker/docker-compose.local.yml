@@ -6,6 +6,8 @@ services:
       context: ../..
       dockerfile: deploy/docker/Dockerfile.local
     container_name: shopsphere-local
+    env_file:
+      - ../../.env
     volumes:
       - ../../app:/app/app
       - ../../scripts:/app/scripts
@@ -28,6 +30,7 @@ services:
       - ALIBABA_CLOUD_ACCESS_KEY_SECRET=${ALIBABA_CLOUD_ACCESS_KEY_SECRET:-}
       - OSS_ENDPOINT=${OSS_ENDPOINT:-}
       - OSS_BUCKET_NAME=${OSS_BUCKET_NAME:-}
+      # DeepSeek AI配置 - 从env_file读取，不在这里覆盖
     networks:
       - shopsphere-local-network
     restart: unless-stopped

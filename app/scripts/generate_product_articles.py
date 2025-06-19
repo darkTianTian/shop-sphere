@@ -24,7 +24,7 @@ from app.utils.scheduler import TaskScheduler
 # 设置日志
 base_logger = setup_logger(
     name='generate_articles',
-    log_file='/var/log/supervisor/generate_articles.log',
+    log_file=None,  # 不输出到文件，只输出到控制台，由supervisor管理
     level=20  # INFO
 )
 
@@ -108,11 +108,18 @@ class ProductArticleGenerator:
             ai_result = self.ai_service.generate_product_article(product_data)
             
             if ai_result:
+                if not ai_result.get("title"):
+                    self.logger.error(f"AI 服务为商品 {product.item_id} 生成文章失败，标题为空")
+                    return None
+                
+                if not ai_result.get("content"):
+                    self.logger.error(f"AI 服务为商品 {product.item_id} 生成文章失败，内容为空")
+                    return None
                 article_content = {
-                    "title": ai_result.get("title", f"{product.item_name} - 详细介绍"),
+                    "title": ai_result.get("title", ""),
                     "content": ai_result.get("content", ""),
                     "tag_ids": ai_result.get("tags", "商品推荐,优质好物"),
-                    "author_name": "AI助手"
+                    "author_name": "deepseek"
                 }
                 
                 self.logger.info(f"商品 {product.item_id} 文章生成成功")

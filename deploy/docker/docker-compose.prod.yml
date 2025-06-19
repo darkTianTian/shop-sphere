@@ -27,6 +27,8 @@ services:
       - OSS_BUCKET_NAME=${OSS_BUCKET_NAME}
       - OSS_ENDPOINT=${OSS_ENDPOINT}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL}
     env_file:
       - /opt/shop-sphere/.env
     networks:
