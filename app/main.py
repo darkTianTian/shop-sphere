@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.routers import video, health, auth, admin, products, articles
+from app.routers import video, health, auth, admin, products, articles, videos
 from app.settings import load_settings
 from app.middleware.admin_auth import AdminAuthMiddleware
 
@@ -45,6 +45,7 @@ app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(products.router)
 app.include_router(articles.router)
+app.include_router(videos.router)
 
 
 @app.get("/")

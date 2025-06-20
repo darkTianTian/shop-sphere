@@ -1,0 +1,179 @@
+{% extends "admin/base.html" %}
+
+{% block title %}视频管理 - ShopSphere{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow overflow-hidden sm:rounded-lg">
+    <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+        <h3 class="text-lg leading-6 font-medium text-gray-900">视频管理</h3>
+    </div>
+    <div class="border-t border-gray-200">
+        <div class="bg-white">
+            <div class="max-w-7xl mx-auto">
+                <div class="flex flex-col">
+                    <div class="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                        <div class="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                            <div class="overflow-hidden border-b border-gray-200">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                ID</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                链接</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                关联商品</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                尺寸</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                时长(s)</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                状态</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                来源</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                UUID</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                创建时间</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        {% for v in videos %}
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ v.id }}
+                                            </td>
+                                            <td
+                                                class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 underline max-w-xs truncate">
+                                                <a href="{{ v.url }}" target="_blank">{{ v.url }}</a>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                {% set prod = product_map.get(v.item_id) %}
+                                                {% if prod %}
+                                                <div class="flex items-center">
+                                                    {% set thumb = (prod.images[0].link if prod.images and
+                                                    prod.images[0].get('link') else None) %}
+                                                    <div class="flex-shrink-0 h-8 w-8">
+                                                        <img class="h-8 w-8 rounded-md object-cover"
+                                                            src="{{ (thumb ~ '?imageView2/2/w/80/format/webp/q/75') if thumb else '/static/images/placeholder.png' }}"
+                                                            alt="{{ prod.item_name }}">
+                                                    </div>
+                                                    <div class="ml-2 text-sm text-gray-900">
+                                                        <div class="truncate w-40 font-medium">{{ prod.item_name }}
+                                                        </div>
+                                                        <div class="flex items-center text-xs text-gray-500 space-x-1">
+                                                            <span>ID:</span>
+                                                            <div class="group relative inline-flex items-center cursor-pointer select-none rounded bg-gray-50 hover:bg-gray-100 px-1.5 py-0.5 font-mono text-gray-700 transition-all copy-wrap"
+                                                                onclick="copyToClipboard('{{ prod.item_id }}', event)">
+                                                                <span>{{ prod.item_id }}</span>
+                                                                <svg xmlns="http://www.w3.org/2000/svg"
+                                                                    class="copy-icon h-4 w-4 ml-1 text-gray-400 opacity-0 group-hover:opacity-100 transform group-hover:scale-100 scale-90 transition"
+                                                                    viewBox="0 0 20 20" fill="currentColor">
+                                                                    <path
+                                                                        d="M8 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V6l-6-4H8z" />
+                                                                </svg>
+                                                                <span
+                                                                    class="copy-tick absolute right-0 top-1/2 -translate-y-1/2 h-4 w-4 flex items-center justify-center text-green-600 text-sm opacity-0">✅</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {% else %}
+                                                <span class="text-xs text-gray-400">无</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ v.width
+                                                }}×{{ v.height }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{
+                                                (v.duration//1000) }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                                    {% if v.status == VideoStatus.FINISHED.value or v.status == VideoStatus.USED.value %}bg-green-100 text-green-800
+                                                    {% elif v.status == VideoStatus.REMOVE_WATERMARK.value or v.status == VideoStatus.AUDIO_REPLACE.value %}bg-yellow-100 text-yellow-800
+                                                    {% elif v.status == VideoStatus.REMOVE_WATERMARK_FAILED.value or v.status == VideoStatus.AUDIO_REPLACE_FAILED.value %}bg-red-100 text-red-800
+                                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                                    {{ v.status.value if v.status.__class__.__name__=='VideoStatus' else
+                                                    v.status }}
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ v.source }}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ v.uuid }}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{
+                                                v.create_at|datetimeformat }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <!-- 分页导航 -->
+                            <div class="mt-4 flex justify-center space-x-4">
+                                {% if has_prev %}
+                                <a href="?page={{ page-1 }}"
+                                    class="w-20 text-center px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 text-sm">上一页</a>
+                                {% else %}
+                                <span
+                                    class="w-20 text-center px-3 py-1 rounded bg-gray-50 text-gray-400 text-sm cursor-not-allowed">上一页</span>
+                                {% endif %}
+
+                                <span class="px-3 py-1 text-sm text-gray-600">第 {{ page }} / {{ total_pages }} 页</span>
+
+                                {% if has_next %}
+                                <a href="?page={{ page+1 }}"
+                                    class="w-20 text-center px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 text-sm">下一页</a>
+                                {% else %}
+                                <span
+                                    class="w-20 text-center px-3 py-1 rounded bg-gray-50 text-gray-400 text-sm cursor-not-allowed">下一页</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function copyToClipboard(text, evt) {
+        const btn = evt && evt.currentTarget;
+        const flash = () => {
+            if (!btn) return;
+            btn.classList.add('ring-2', 'ring-green-400');
+            const icon = btn.querySelector('.copy-icon');
+            const tick = btn.querySelector('.copy-tick');
+            if (icon && tick) {
+                icon.classList.add('invisible');
+                tick.classList.remove('opacity-0');
+                setTimeout(() => {
+                    btn.classList.remove('ring-2', 'ring-green-400');
+                    icon.classList.remove('invisible');
+                    tick.classList.add('opacity-0');
+                }, 800);
+            }
+        };
+
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(flash).catch(fallback);
+        } else { fallback(); }
+
+        function fallback() {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); flash();
+            } catch (e) { console.error(e); alert('复制失败'); }
+        }
+    }
+</script>
+{% endblock %}

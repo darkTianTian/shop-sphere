@@ -44,6 +44,10 @@
                             class="{% if request.path.startswith('/admin/articles') %}border-primary text-gray-900{% else %}border-transparent text-gray-500{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             文章管理
                         </a>
+                        <a href="/admin/videos"
+                            class="{% if request.path.startswith('/admin/videos') %}border-primary text-gray-900{% else %}border-transparent text-gray-500{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            视频管理
+                        </a>
                         <a href="/admin/settings"
                             class="{% if request.path.startswith('/admin/settings') %}border-primary text-gray-900{% else %}border-transparent text-gray-500{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             系统设置
