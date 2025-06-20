@@ -36,12 +36,6 @@ services:
         aliases:
           - web
     restart: unless-stopped
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
 
   # Nginx反向代理（使用阿里云优化镜像的特殊配置）
   nginx:
@@ -56,19 +50,12 @@ services:
       - /opt/shop-sphere/logs/nginx:/var/log/nginx
     command: nginx_keentune.sh
     depends_on:
-      web:
-        condition: service_healthy
+      - web
     networks:
       shopsphere-net:
         aliases:
           - nginx
     restart: unless-stopped
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost/nginx-health" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
 
 networks:
   shopsphere-net:
