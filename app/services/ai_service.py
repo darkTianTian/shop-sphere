@@ -158,7 +158,8 @@ class DeepSeekAIService:
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=model_config["max_tokens"],
                 temperature=model_config["temperature"],
-                response_format={"type": "json_object"}
+                response_format={"type": "json_object"},
+                stream=False
             )
             
             self.logger.info(f"API 调用成功 - 模型: {model_name}, respnose: {response}")

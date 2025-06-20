@@ -115,11 +115,13 @@ class ProductArticleGenerator:
                 if not ai_result.get("content"):
                     self.logger.error(f"AI 服务为商品 {product.item_id} 生成文章失败，内容为空")
                     return None
+                # 获取本次调用所用模型名称，作为作者名存储
+                model_name_used = self.ai_service.model_strategy.get_optimal_model()
                 article_content = {
                     "title": ai_result.get("title", ""),
                     "content": ai_result.get("content", ""),
                     "tags": ai_result.get("tags", "商品推荐,优质好物"),
-                    "author_name": "deepseek"
+                    "author_name": model_name_used
                 }
                 
                 self.logger.info(f"商品 {product.item_id} 文章生成成功")
@@ -148,7 +150,7 @@ class ProductArticleGenerator:
                 # 创建文章记录
                 article = ProductArticle(
                     item_id=product.item_id,
-                    sku_id=product.item_id,  # 如果没有特定SKU，使用item_id
+                    sku_id=product.first_sku_id,
                     title=article_content["title"],
                     content=article_content["content"],
                     tag_ids="",  # 保留原字段，暂时为空
