@@ -178,7 +178,11 @@
     function openPreview(el) {
         const modal = document.getElementById('previewModal');
         document.getElementById('previewTitle').textContent = el.dataset.title || '预览';
-        document.getElementById('previewContent').textContent = el.dataset.content || '';
+        let raw = el.dataset.content || '';
+        // 将字符串中的 \n、\r\n 以及 &#10; / &#13; 转成实际换行符，便于预览
+        raw = raw.replace(/&#10;|&#13;/g, '\n') // HTML 实体 -> 换行
+            .replace(/\\r\\n|\\n|\\r/g, '\n'); // 转义序列 -> 换行
+        document.getElementById('previewContent').textContent = raw;
         modal.classList.remove('hidden');
         modal.classList.add('flex');
     }
