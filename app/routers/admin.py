@@ -10,6 +10,7 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select, func
 from zoneinfo import ZoneInfo
 from app.settings import load_settings
+import math
 
 from app.auth.config import current_superuser, fastapi_users
 from app.auth.decorators import require_admin, require_superuser, require_admin_or_superuser
@@ -372,23 +373,35 @@ async def delete_product(
 @router.get("/articles", response_class=HTMLResponse)
 async def list_articles(
     request: Request,
+    page: int = 1,
     current_user: dict = Depends(require_admin())
 ):
-    """文章列表页面"""
+    """文章列表页面（带分页）"""
+    PAGE_SIZE = 30
+    page = max(page, 1)
     with Session(engine) as session:
-        articles = session.exec(
+        # 总记录数
+        total = session.exec(select(func.count(ProductArticle.id))).one()
+        total_pages = max(math.ceil(total / PAGE_SIZE), 1)
+        offset_val = (page - 1) * PAGE_SIZE
+
+        stmt = (
             select(ProductArticle)
             .order_by(ProductArticle.create_at.desc())
-        ).all()
+            .offset(offset_val)
+            .limit(PAGE_SIZE)
+        )
+        articles = session.exec(stmt).all()
 
-        # 取出所有 item_id
+        # 关联商品
         item_ids = [a.item_id for a in articles if a.item_id]
-        product_map = {}
+        product_map: dict[str, Product] = {}
         if item_ids:
             products = session.exec(
                 select(Product).where(Product.item_id.in_(item_ids))
             ).all()
             product_map = {p.item_id: p for p in products}
+
         return templates.TemplateResponse(
             "admin/articles.html",
             {
@@ -396,7 +409,11 @@ async def list_articles(
                 "user": current_user,
                 "articles": articles,
                 "ArticleStatus": ArticleStatus,
-                "product_map": product_map
+                "product_map": product_map,
+                "page": page,
+                "total_pages": total_pages,
+                "has_prev": page > 1,
+                "has_next": page < total_pages,
             }
         )
 

@@ -52,8 +52,11 @@
                                                 class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 max-w-xs truncate">
                                                 {{ art.title }}</td>
                                             <td class="px-6 py-4 text-sm text-gray-500 max-w-md truncate">
-                                                {{ art.content[:80] + '...' if art.content and art.content|length > 80
-                                                else art.content or '-' }}
+                                                <span title="点击预览" class="cursor-pointer" onclick="openPreview(this)"
+                                                    data-content="{{ art.content|replace('\n','&#10;') }}">
+                                                    {{ art.content[:60] + '...' if art.content and art.content|length >
+                                                    60 else art.content or '-' }}
+                                                </span>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 {% set prod = product_map.get(art.item_id) %}
@@ -78,7 +81,12 @@
                                             </td>
                                             <td
                                                 class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">
-                                                {{ art.tags if art.tags else '-' }}
+                                                {% if art.tags %}
+                                                <span title="点击预览" class="cursor-pointer" onclick="openPreview(this)"
+                                                    data-content="{{ art.tags }}" data-title="标签预览">
+                                                    {{ art.tags[:30] + '...' if art.tags|length > 30 else art.tags }}
+                                                </span>
+                                                {% else %}-{% endif %}
                                             </td>
                                             <td
                                                 class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">
@@ -101,12 +109,32 @@
                                     </tbody>
                                 </table>
                             </div>
+                            <!-- 分页导航已移至底部 -->
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
+
+<!-- 分页导航（固定底部） -->
+<div class="sticky bottom-0 left-0 w-full bg-white py-3 flex justify-center space-x-4 border-t shadow-inner z-30">
+    {% if has_prev %}
+    <a href="?page={{ page-1 }}"
+        class="w-20 text-center px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 text-sm">上一页</a>
+    {% else %}
+    <span class="w-20 text-center px-3 py-1 rounded bg-gray-50 text-gray-400 text-sm cursor-not-allowed">上一页</span>
+    {% endif %}
+
+    <span class="px-3 py-1 text-sm text-gray-600">第 {{ page }} / {{ total_pages }} 页</span>
+
+    {% if has_next %}
+    <a href="?page={{ page+1 }}"
+        class="w-20 text-center px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 text-sm">下一页</a>
+    {% else %}
+    <span class="w-20 text-center px-3 py-1 rounded bg-gray-50 text-gray-400 text-sm cursor-not-allowed">下一页</span>
+    {% endif %}
 </div>
 
 <script>
@@ -130,6 +158,34 @@
             console.error(e);
             alert('删除失败');
         }
+    }
+</script>
+
+<!-- 预览弹窗 -->
+<div id="previewModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+    <div class="absolute inset-0 bg-gray-800 opacity-50" onclick="closePreview()"></div>
+    <div class="relative bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[80vh] overflow-auto p-6">
+        <h3 id="previewTitle" class="text-lg font-medium text-gray-900 mb-4">预览</h3>
+        <pre id="previewContent" class="whitespace-pre-wrap text-sm text-gray-800"></pre>
+        <div class="text-right mt-4">
+            <button onclick="closePreview()"
+                class="bg-primary text-white px-4 py-1 rounded-md hover:bg-blue-700">关闭</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openPreview(el) {
+        const modal = document.getElementById('previewModal');
+        document.getElementById('previewTitle').textContent = el.dataset.title || '预览';
+        document.getElementById('previewContent').textContent = el.dataset.content || '';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+    function closePreview() {
+        const modal = document.getElementById('previewModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
     }
 </script>
 {% endblock %}
