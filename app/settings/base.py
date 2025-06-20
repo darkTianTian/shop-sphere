@@ -20,8 +20,11 @@ class BaseSettings:
     """基础配置类"""
     TIMEZONE = 'Asia/Shanghai'
     
-    @classmethod
-    def get_db_settings(cls) -> DatabaseSettings:
+    # 安全配置
+    SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
+    JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'your-jwt-secret-key-change-in-production')
+    
+    def get_db_settings(self) -> DatabaseSettings:
         """获取数据库配置"""
         return DatabaseSettings(
             host=os.environ.get('DB_HOST') or os.environ.get('MYSQL_HOST', 'localhost'),

@@ -8,7 +8,7 @@ from app.models.user import User  # 添加 User 模型导入
 def init_db():
     """初始化数据库，创建所有表"""
     settings = load_settings()
-    db_settings = settings.Settings.get_db_settings()
+    db_settings = settings.get_db_settings()
     engine = create_engine(db_settings.url, echo=False)
     
     # 创建所有表

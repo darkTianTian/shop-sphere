@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ShopSphere 管理系统{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1e40af',
+                    }
+                }
+            }
+        }
+    </script>
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body class="bg-gray-100">
+    <!-- 顶部导航栏 -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <a href="/admin" class="text-xl font-bold text-primary">ShopSphere</a>
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a href="/admin/users"
+                            class="{% if request.path.startswith('/admin/users') %}border-primary text-gray-900{% else %}border-transparent text-gray-500{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            用户管理
+                        </a>
+                        <a href="/admin/products"
+                            class="{% if request.path.startswith('/admin/products') %}border-primary text-gray-900{% else %}border-transparent text-gray-500{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            商品管理
+                        </a>
+                        <a href="/admin/articles"
+                            class="{% if request.path.startswith('/admin/articles') %}border-primary text-gray-900{% else %}border-transparent text-gray-500{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            文章管理
+                        </a>
+                        <a href="/admin/settings"
+                            class="{% if request.path.startswith('/admin/settings') %}border-primary text-gray-900{% else %}border-transparent text-gray-500{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            系统设置
+                        </a>
+                    </div>
+                </div>
+                <div class="hidden sm:ml-6 sm:flex sm:items-center">
+                    <div class="ml-3 relative">
+                        <div class="flex items-center">
+                            <span class="text-gray-700 text-sm mr-4">{{ user.username }}</span>
+                            <a href="/auth/logout" class="text-gray-500 hover:text-gray-700">退出</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容区域 -->
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-white shadow-lg mt-8">
+        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+            <p class="text-center text-gray-500 text-sm">
+                &copy; 2024 ShopSphere. All rights reserved.
+            </p>
+        </div>
+    </footer>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+
+</html>

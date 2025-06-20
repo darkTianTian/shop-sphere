@@ -1,10 +1,9 @@
 from app.settings.base import BaseSettings, DatabaseSettings
 
 class Settings(BaseSettings):
-    """本地环境配置"""
+    """本地开发环境配置"""
     
-    @classmethod
-    def get_db_settings(cls) -> DatabaseSettings:
+    def get_db_settings(self) -> DatabaseSettings:
         """获取本地数据库配置"""
         return DatabaseSettings(
             host='mysql',  # 使用docker-compose中定义的服务名

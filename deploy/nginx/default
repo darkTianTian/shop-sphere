@@ -24,11 +24,17 @@ server {
         proxy_set_header Connection "upgrade";
     }
 
-    # 静态文件处理（如果有的话）
+    # 静态文件处理
     location /static/ {
         alias /app/static/;
         expires 1y;
         add_header Cache-Control "public, immutable";
+    }
+
+    # 模板文件（可选，如果需要直接访问）
+    location /templates/ {
+        alias /app/templates/;
+        internal;  # 只允许内部访问
     }
 
     # 健康检查端点

@@ -1,20 +1,19 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from fastapi.staticfiles import StaticFiles
 
-from app.routers import video, health, auth
+from app.routers import video, health, auth, admin
+from app.settings import load_settings
 
 app = FastAPI(
-    title="Shop Sphere API",
-    description="商品管理和文章生成系统 - 支持多用户后台管理",
-    version="1.0.0"
+    title="ShopSphere API",
+    description="ShopSphere 电商管理系统 API",
+    version="0.1.0",
 )
 
-# 添加Session中间件（认证需要）
-app.add_middleware(
-    SessionMiddleware, 
-    secret_key="your-secret-key-change-in-production"
-)
+# 加载配置
+settings = load_settings()
 
 # 添加CORS中间件
 app.add_middleware(
@@ -25,10 +24,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 配置会话
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY,
+    max_age=3600 * 24 * 7,  # 7天
+)
+
+# 挂载静态文件
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
 # 包含路由
 app.include_router(video.router)
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(admin.router)
 
 
 @app.get("/")
