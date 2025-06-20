@@ -11,8 +11,6 @@ services:
       - /opt/shop-sphere/logs/nginx:/var/log/nginx
       - /opt/shop-sphere/logs/supervisor:/var/log/supervisor
       - /opt/shop-sphere/.env:/app/.env:ro
-    ports:
-      - "8000:8000" # 直接暴露应用端口
     environment:
       - SERVER_ENVIRONMENT=PROD
       - PYTHONPATH=/app
