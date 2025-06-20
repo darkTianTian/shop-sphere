@@ -430,4 +430,57 @@ async def delete_article(
             raise HTTPException(status_code=404, detail="文章不存在")
         session.delete(article)
         session.commit()
-        return {"ok": True} 
+        return {"ok": True}
+
+
+@router.get("/articles/{article_id}/edit", response_class=HTMLResponse)
+async def edit_article_form(
+    article_id: int,
+    request: Request,
+    current_user: dict = Depends(require_admin())
+):
+    """文章编辑页面"""
+    with Session(engine) as session:
+        article = session.get(ProductArticle, article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="文章不存在")
+        return templates.TemplateResponse(
+            "admin/article_form.html",
+            {
+                "request": request,
+                "user": current_user,
+                "article": article,
+                "statuses": [s.value for s in ArticleStatus],
+            },
+        )
+
+
+@router.post("/articles/{article_id}/edit")
+async def edit_article(
+    article_id: int,
+    request: Request,
+    current_user: dict = Depends(require_admin()),
+):
+    """保存文章编辑"""
+    form_data = await request.form()
+    with Session(engine) as session:
+        article = session.get(ProductArticle, article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="文章不存在")
+        # 更新可编辑字段
+        new_title = form_data.get("title", "").strip()
+        if new_title and len(new_title) > 20:
+            raise HTTPException(status_code=400, detail="标题长度不能超过20个字符")
+        article.title = new_title or article.title
+        new_content = form_data.get("content", "").strip()
+        if new_content and len(new_content) > 1000:
+            raise HTTPException(status_code=400, detail="内容长度不能超过1000个字符")
+        article.content = new_content or article.content
+        article.tags = form_data.get("tags", article.tags)
+        # 更新状态
+        status_str = form_data.get("status")
+        if status_str and status_str in [s.value for s in ArticleStatus]:
+            article.status = ArticleStatus(status_str)
+        article.update_at = int(datetime.utcnow().timestamp() * 1000)
+        session.commit()
+    return RedirectResponse(url="/admin/articles", status_code=302) 

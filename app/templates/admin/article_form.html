@@ -1,0 +1,148 @@
+{% extends "admin/base.html" %}
+
+{% block title %}编辑文章 - ShopSphere{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow overflow-hidden sm:rounded-lg">
+    <div class="px-4 py-5 sm:px-6">
+        <h3 class="text-lg leading-6 font-medium text-gray-900">编辑文章</h3>
+    </div>
+    <div class="border-t border-gray-200">
+        <form method="post" action="/admin/articles/{{ article.id }}/edit" class="space-y-6 p-6" id="articleForm">
+            <div>
+                <label for="title" class="block text-sm font-medium text-gray-700">标题 <span
+                        class="text-xs text-gray-400">(≤20字)</span></label>
+                <div class="mt-1">
+                    <input type="text" name="title" id="title" required maxlength="20"
+                        class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                        value="{{ article.title }}">
+                </div>
+            </div>
+
+            <div>
+                <label for="content" class="block text-sm font-medium text-gray-700">内容 <span
+                        class="text-xs text-gray-400">(≤1000字)</span></label>
+                <div class="mt-1">
+                    <textarea name="content" id="content" rows="10" required maxlength="1000"
+                        class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">{{ article.content }}</textarea>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">标签</label>
+                <div id="tagContainer"
+                    class="flex flex-wrap gap-2 p-2 border border-gray-300 rounded-md bg-white min-h-[42px]">
+                    <!-- 动态插入标签chips -->
+                    <input id="tagInput" type="text" placeholder="输入后回车或逗号添加"
+                        class="flex-grow min-w-[120px] px-2 py-1 text-sm focus:outline-none">
+                </div>
+                <!-- 隐藏字段提交用 -->
+                <input type="hidden" name="tags" id="tags" value="{{ article.tags or '' }}">
+            </div>
+
+            <div>
+                <label for="status" class="block text-sm font-medium text-gray-700">状态</label>
+                <div class="mt-1">
+                    <select id="status" name="status" required
+                        class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm rounded-md bg-blue-50 text-primary font-semibold shadow-inner">
+                        {% for s in statuses %}
+                        <option value="{{ s }}" {{ 'selected' if article.status==s else '' }}>{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-4">
+                <a href="/admin/articles"
+                    class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                    取消
+                </a>
+                <button type="submit"
+                    class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                    保存
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.getElementById('articleForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+            const form = e.target;
+            const titleInput = form.querySelector('#title');
+            if (titleInput.value.trim().length > 20) {
+                alert('标题长度不能超过20个字符');
+                return;
+            }
+            const contentInput = form.querySelector('#content');
+            if (contentInput.value.trim().length > 1000) {
+                alert('内容长度不能超过1000个字符');
+                return;
+            }
+            const formData = new FormData(form);
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+            if (response.ok) {
+                window.location.href = '/admin/articles';
+            } else {
+                const data = await response.json();
+                alert(data.detail || '保存失败');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('保存失败');
+        }
+    });
+
+    const tagInput = document.getElementById('tagInput');
+    const tagContainer = document.getElementById('tagContainer');
+    const hiddenTagsInput = document.getElementById('tags');
+
+    let tagsArr = (hiddenTagsInput.value || '').split(',').map(t => t.trim()).filter(t => t);
+
+    function renderTags() {
+        // 清除现有tag元素(除输入框)
+        [...tagContainer.querySelectorAll('.tag-chip')].forEach(el => el.remove());
+        tagsArr.forEach((tag, idx) => {
+            const chip = document.createElement('span');
+            chip.className = 'tag-chip inline-flex items-center bg-blue-100 text-primary rounded-full px-2 py-0.5 text-sm';
+            chip.textContent = tag;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'ml-1 text-xs text-primary hover:text-red-600 focus:outline-none';
+            btn.innerHTML = '&times;';
+            btn.addEventListener('click', () => {
+                tagsArr.splice(idx, 1);
+                renderTags();
+            });
+            chip.appendChild(btn);
+            tagContainer.insertBefore(chip, tagInput);
+        });
+        hiddenTagsInput.value = tagsArr.join(',');
+    }
+
+    function addTag(tag) {
+        tag = tag.trim();
+        if (!tag) return;
+        if (tagsArr.includes(tag)) return;
+        tagsArr.push(tag);
+        renderTags();
+    }
+
+    // 初始渲染
+    renderTags();
+
+    tagInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            addTag(tagInput.value);
+            tagInput.value = '';
+        }
+    });
+</script>
+{% endblock %}

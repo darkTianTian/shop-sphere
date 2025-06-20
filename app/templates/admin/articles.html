@@ -79,13 +79,22 @@
                                                 <span class="text-xs text-gray-400">无</span>
                                                 {% endif %}
                                             </td>
-                                            <td
-                                                class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs">
                                                 {% if art.tags %}
-                                                <span title="点击预览" class="cursor-pointer" onclick="openPreview(this)"
+                                                {% set tag_list = art.tags.split(',') %}
+                                                <div class="flex flex-nowrap items-center gap-1 overflow-hidden cursor-pointer"
+                                                    title="点击预览" onclick="openPreview(this)"
                                                     data-content="{{ art.tags }}" data-title="标签预览">
-                                                    {{ art.tags[:30] + '...' if art.tags|length > 30 else art.tags }}
-                                                </span>
+                                                    {% for tag in tag_list[:3] %}
+                                                    <span
+                                                        class="inline-flex items-center bg-blue-100 text-primary rounded-full px-2 py-0.5 text-xs">{{
+                                                        tag }}</span>
+                                                    {% endfor %}
+                                                    {% if tag_list|length > 3 %}
+                                                    <span class="text-xs text-gray-500">+{{ tag_list|length - 3
+                                                        }}</span>
+                                                    {% endif %}
+                                                </div>
                                                 {% else %}-{% endif %}
                                             </td>
                                             <td
@@ -95,12 +104,15 @@
                                                     {% elif art.status == ArticleStatus.PENDING_PUBLISH.value or art.status == ArticleStatus.PENDING_REVIEW.value %}bg-yellow-100 text-yellow-800
                                                     {% elif art.status == ArticleStatus.REJECTED.value %}bg-red-100 text-red-800
                                                     {% else %}bg-gray-100 text-gray-800{% endif %}">
-                                                    {{ art.status }}
+                                                    {{ art.status.value if art.status is mapping else art.status.value
+                                                    if art.status.__class__.__name__=='ArticleStatus' else art.status }}
                                                 </span>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{
                                                 art.create_at|datetimeformat }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <a href="/admin/articles/{{ art.id }}/edit"
+                                                    class="text-blue-600 hover:text-blue-800 mr-4">编辑</a>
                                                 <button onclick="deleteArticle('{{ art.id }}')"
                                                     class="text-red-600 hover:text-red-800">删除</button>
                                             </td>
@@ -166,7 +178,7 @@
     <div class="absolute inset-0 bg-gray-800 opacity-50" onclick="closePreview()"></div>
     <div class="relative bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[80vh] overflow-auto p-6">
         <h3 id="previewTitle" class="text-lg font-medium text-gray-900 mb-4">预览</h3>
-        <pre id="previewContent" class="whitespace-pre-wrap text-sm text-gray-800"></pre>
+        <div id="previewContent" class="whitespace-pre-wrap text-sm text-gray-800"></div>
         <div class="text-right mt-4">
             <button onclick="closePreview()"
                 class="bg-primary text-white px-4 py-1 rounded-md hover:bg-blue-700">关闭</button>
@@ -182,7 +194,14 @@
         // 将字符串中的 \n、\r\n 以及 &#10; / &#13; 转成实际换行符，便于预览
         raw = raw.replace(/&#10;|&#13;/g, '\n') // HTML 实体 -> 换行
             .replace(/\\r\\n|\\n|\\r/g, '\n'); // 转义序列 -> 换行
-        document.getElementById('previewContent').textContent = raw;
+        const contentEl = document.getElementById('previewContent');
+        const title = el.dataset.title || '预览';
+        if (title.includes('标签')) {
+            const chips = raw.split(',').map(t => t.trim()).filter(t => t).map(t => `<span class="inline-flex items-center bg-blue-100 text-primary rounded-full px-2 py-0.5 text-sm mr-1 mb-1">${t}</span>`).join('');
+            contentEl.innerHTML = chips || '<span class="text-gray-400 text-sm">无标签</span>';
+        } else {
+            contentEl.textContent = raw;
+        }
         modal.classList.remove('hidden');
         modal.classList.add('flex');
     }
