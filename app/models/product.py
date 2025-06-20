@@ -162,8 +162,8 @@ class Product(BaseModel, table=True):
     desc: Optional[str] = Field(default="")
     status: Optional[int] = Field(default=0)
     buyable: bool = Field(default=True)
-    item_create_time: int = Field(default=0, sa_type=sa.BigInteger)
-    item_update_time: int = Field(default=0, sa_type=sa.BigInteger)
+    item_create_time: int = Field(default=0, sa_type=sa.BigInteger, index=True)
+    item_update_time: int = Field(default=0, sa_type=sa.BigInteger, index=True)
     min_price: int = Field(default=0)
     max_price: int = Field(default=0)
     product_note_num: int = Field(default=0)
@@ -478,7 +478,7 @@ class Product(BaseModel, table=True):
             item_update_time=item.get('update_time', 0),
             min_price=item.get('min_price', 0),
             max_price=item.get('max_price', 0),
-            images=json.dumps(item.get('images', [])),
+            images=item.get('images', []),
             categories=item.get('categories', []),
             # is_auto_off_shelf=item.get('is_auto_off_shelf', False),
             # is_education_pricing=item.get('is_education_pricing', False),

@@ -51,12 +51,13 @@
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <div class="flex items-center">
-                                                    {% if product.image_url %}
+                                                    {% set thumb = (product.images[0].link if product.images and
+                                                    product.images[0].get('link') else None) %}
                                                     <div class="flex-shrink-0 h-10 w-10">
                                                         <img class="h-10 w-10 rounded-md object-cover"
-                                                            src="{{ product.image_url }}" alt="{{ product.name }}">
+                                                            src="{{ (thumb ~ '?imageView2/2/w/140/format/webp/q/75') if thumb else '/static/images/placeholder.png' }}"
+                                                            alt="{{ product.item_name }}">
                                                     </div>
-                                                    {% endif %}
                                                     <div class="ml-4">
                                                         <div class="text-sm font-medium text-gray-900">
                                                             {{ product.item_name }}
@@ -71,13 +72,14 @@
                                                 </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-900">¥{{ "%.2f"|format(product.min_price /
-                                                    100) }}</div>
-                                                {% if product.max_price and product.max_price > product.min_price %}
-                                                <div class="text-sm text-gray-500 line-through">
-                                                    ¥{{ "%.2f"|format(product.max_price / 100) }}
+                                                <div class="text-sm text-gray-900">
+                                                    {% if product.max_price and product.max_price > product.min_price %}
+                                                    ¥{{ "%.2f"|format(product.min_price / 100) }} - ¥{{
+                                                    "%.2f"|format(product.max_price / 100) }}
+                                                    {% else %}
+                                                    ¥{{ "%.2f"|format(product.min_price / 100) }}
+                                                    {% endif %}
                                                 </div>
-                                                {% endif %}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <div class="text-sm text-gray-900">

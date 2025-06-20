@@ -80,6 +80,7 @@ def save_result(result: dict, logger):
                     existing_product.min_price = product.min_price
                     existing_product.max_price = product.max_price
                     existing_product.update_time = datetime.now()
+                    existing_product.images = product.images
                     logger.info(f"更新商品: {product.item_id}")
                 else:
                     # 添加新记录

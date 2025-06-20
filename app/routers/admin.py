@@ -310,7 +310,7 @@ async def list_products(
     with Session(engine) as session:
         products = session.exec(
             select(Product)
-            .order_by(Product.id.desc())
+            .order_by(Product.item_create_time.desc())
         ).all()
         
         return templates.TemplateResponse(
