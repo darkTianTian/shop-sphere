@@ -3,20 +3,48 @@
 """
 
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select, func
+from zoneinfo import ZoneInfo
+from app.settings import load_settings
 
 from app.auth.config import current_superuser, fastapi_users
 from app.auth.decorators import require_admin, require_superuser, require_admin_or_superuser
 from app.internal.db import engine
 from app.models.user import User, UserRole
-from app.models.product import Product
+from app.models.product import Product, ProductArticle, ArticleStatus
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 templates = Jinja2Templates(directory="app/templates")
+
+settings_cfg = load_settings()
+
+# 注册自定义过滤器
+if "datetimeformat" not in templates.env.filters:
+    try:
+        tzinfo = ZoneInfo(settings_cfg.TIMEZONE)  # e.g., Asia/Shanghai
+    except Exception:
+        tzinfo = timezone(timedelta(hours=8))  # fallback UTC+8
+    def _dt_filter(value, fmt="%Y-%m-%d %H:%M:%S"):
+        """将 datetime 或毫秒/秒时间戳格式化为字符串 (settings.TIMEZONE)"""
+        if not value:
+            return ""
+        try:
+            # 如果是 datetime 对象
+            return value.astimezone(tzinfo).strftime(fmt)
+        except AttributeError:
+            try:
+                ts = int(value)
+                if ts > 1e12:
+                    ts = ts / 1000
+                return datetime.fromtimestamp(ts, tz=tzinfo).strftime(fmt)
+            except Exception:
+                return str(value)
+
+    templates.env.filters["datetimeformat"] = _dt_filter
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -337,5 +365,52 @@ async def delete_product(
         # TODO: 检查商品是否可以删除（例如是否有关联的订单）
         
         session.delete(product)
+        session.commit()
+        return {"ok": True}
+
+
+@router.get("/articles", response_class=HTMLResponse)
+async def list_articles(
+    request: Request,
+    current_user: dict = Depends(require_admin())
+):
+    """文章列表页面"""
+    with Session(engine) as session:
+        articles = session.exec(
+            select(ProductArticle)
+            .order_by(ProductArticle.create_at.desc())
+        ).all()
+
+        # 取出所有 item_id
+        item_ids = [a.item_id for a in articles if a.item_id]
+        product_map = {}
+        if item_ids:
+            products = session.exec(
+                select(Product).where(Product.item_id.in_(item_ids))
+            ).all()
+            product_map = {p.item_id: p for p in products}
+        return templates.TemplateResponse(
+            "admin/articles.html",
+            {
+                "request": request,
+                "user": current_user,
+                "articles": articles,
+                "ArticleStatus": ArticleStatus,
+                "product_map": product_map
+            }
+        )
+
+
+@router.delete("/articles/{article_id}")
+async def delete_article(
+    article_id: int,
+    current_user: dict = Depends(require_admin())
+):
+    """删除文章"""
+    with Session(engine) as session:
+        article = session.get(ProductArticle, article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="文章不存在")
+        session.delete(article)
         session.commit()
         return {"ok": True} 

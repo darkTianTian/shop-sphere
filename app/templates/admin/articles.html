@@ -1,0 +1,135 @@
+{% extends "admin/base.html" %}
+
+{% block title %}文章管理 - ShopSphere{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow overflow-hidden sm:rounded-lg">
+    <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+        <h3 class="text-lg leading-6 font-medium text-gray-900">文章管理</h3>
+    </div>
+    <div class="border-t border-gray-200">
+        <div class="bg-white">
+            <div class="max-w-7xl mx-auto">
+                <div class="flex flex-col">
+                    <div class="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                        <div class="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                            <div class="overflow-hidden border-b border-gray-200">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                ID</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                标题</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                内容</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                关联商品</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                标签</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                状态</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                创建时间 (UTC+08)</th>
+                                            <th
+                                                class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        {% for art in articles %}
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ art.id }}
+                                            </td>
+                                            <td
+                                                class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 max-w-xs truncate">
+                                                {{ art.title }}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-500 max-w-md truncate">
+                                                {{ art.content[:80] + '...' if art.content and art.content|length > 80
+                                                else art.content or '-' }}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                {% set prod = product_map.get(art.item_id) %}
+                                                {% if prod %}
+                                                <div class="flex items-center">
+                                                    {% set thumb = (prod.images[0].link if prod.images and
+                                                    prod.images[0].get('link') else None) %}
+                                                    <div class="flex-shrink-0 h-8 w-8">
+                                                        <img class="h-8 w-8 rounded-md object-cover"
+                                                            src="{{ (thumb ~ '?imageView2/2/w/80/format/webp/q/75') if thumb else '/static/images/placeholder.png' }}"
+                                                            alt="{{ prod.item_name }}">
+                                                    </div>
+                                                    <div class="ml-2 text-sm text-gray-900">
+                                                        <div class="truncate w-40 font-medium">{{ prod.item_name }}
+                                                        </div>
+                                                        <div class="text-xs text-gray-500">ID: {{ prod.item_id }}</div>
+                                                    </div>
+                                                </div>
+                                                {% else %}
+                                                <span class="text-xs text-gray-400">无</span>
+                                                {% endif %}
+                                            </td>
+                                            <td
+                                                class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">
+                                                {{ art.tags if art.tags else '-' }}
+                                            </td>
+                                            <td
+                                                class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                                    {% if art.status == ArticleStatus.PUBLISHED.value %}bg-green-100 text-green-800
+                                                    {% elif art.status == ArticleStatus.PENDING_PUBLISH.value or art.status == ArticleStatus.PENDING_REVIEW.value %}bg-yellow-100 text-yellow-800
+                                                    {% elif art.status == ArticleStatus.REJECTED.value %}bg-red-100 text-red-800
+                                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                                    {{ art.status }}
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{
+                                                art.create_at|datetimeformat }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <button onclick="deleteArticle('{{ art.id }}')"
+                                                    class="text-red-600 hover:text-red-800">删除</button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function deleteArticle(articleId) {
+        if (!confirm('确定要删除这篇文章吗？')) {
+            return;
+        }
+        try {
+            const resp = await fetch(`/admin/articles/${articleId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            });
+            if (resp.ok) {
+                location.reload();
+            } else {
+                const data = await resp.json();
+                alert(data.detail || '删除失败');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('删除失败');
+        }
+    }
+</script>
+{% endblock %}
