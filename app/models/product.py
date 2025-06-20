@@ -3,10 +3,10 @@ from dataclasses import dataclass
 import json
 import time
 from datetime import datetime
-from sqlmodel import Field, SQLModel, Enum as SQLEnum
+from sqlmodel import Field, SQLModel, Relationship, Enum as SQLEnum
 import sqlalchemy as sa
 from enum import Enum, auto
-
+from app.models.base import BaseModel
 
 @dataclass
 class SearchOrder:
@@ -155,9 +155,8 @@ class ProductSearchRequestBuilder:
         return self._request 
 
 
-class Product(SQLModel, table=True):
+class Product(BaseModel, table=True):
     """商品模型"""
-    id: Optional[int] = Field(default=None, primary_key=True)
     item_id: str = Field(index=True)
     item_name: str = Field()
     desc: Optional[str] = Field(default="")
@@ -167,26 +166,21 @@ class Product(SQLModel, table=True):
     item_update_time: int = Field(default=0, sa_type=sa.BigInteger)
     min_price: int = Field(default=0)
     max_price: int = Field(default=0)
-    # images: List[dict] = Field(default=[])
-    # categories: List[dict] = Field(default=[])
-    # is_auto_off_shelf: bool = Field(default=False)
-    # is_education_pricing: bool = Field(default=False)
-    # category_check_time: int = Field(default=0, sa_type=sa.BigInteger)
     product_note_num: int = Field(default=0)
-    # images: List[dict] = Field(default=[])
-    on_shelf_sku_count: int = Field(default=0)
-    off_shelf_sku_count: int = Field(default=0)
-    is_channel: bool = Field(default=False)
-    category_check_status: int = Field(default=0)
+    
+    # on_shelf_sku_count: int = Field(default=0)
+    # off_shelf_sku_count: int = Field(default=0)
+    # is_channel: bool = Field(default=False)
+    # category_check_status: int = Field(default=0)
     seller_id: str = Field(default="")
     delivery_mode: int = Field(default=0)
     # allowance_plan: bool = Field(default=False)
-    is_free_return: bool = Field(default=False)
+    # is_free_return: bool = Field(default=False)
     xsec_token: str = Field(default="")
     # sale_qty_info: dict = Field(default={})
-    order_note_num: int = Field(default=0)
+    # order_note_num: int = Field(default=0)
     deleted: bool = Field(default=False)
-    check_status: int = Field(default=0)
+    # check_status: int = Field(default=0)
     sku_count: int = Field(default=0)
     category_id: str = Field(default="", index=True)
     on_sale_sku_count: int = Field(default=0)
@@ -195,35 +189,32 @@ class Product(SQLModel, table=True):
     first_sku_id: str = Field(default="")
     shipping_template_id: str = Field(default="")
     # image_descriptions: List[dict] = Field(default=[])
-    item_audit_status: int = Field(default=0)
-    union_type: int = Field(default=0)
+    # item_audit_status: int = Field(default=0)
+    # union_type: int = Field(default=0)
     total_stock: int = Field(default=0)
     # expected_purchase_time: int = Field(default=0, sa_type=sa.BigInteger)
-    use_playback: int = Field(default=0)
-    sold_out_sku_count: int = Field(default=0)
-    is_o2_o: bool = Field(default=False)
+    # use_playback: int = Field(default=0)
+    # sold_out_sku_count: int = Field(default=0)
+    # is_o2_o: bool = Field(default=False)
     brand_audit_result: int = Field(default=0)
     item_name_with_brand_name: str = Field(default="")
-    is_item_attend_promotion: bool = Field(default=False)
-    is_genuine_guarantee: bool = Field(default=False)
-    item_audit_time: int = Field(default=0, sa_type=sa.BigInteger)
-    auto_off_shelf_time: int = Field(default=0, sa_type=sa.BigInteger)
-    need_qic: bool = Field(default=False)
-    category_audit_result: int = Field(default=0)
-    stock_type: int = Field(default=0)
-    min_membership_price: int = Field(default=0)
-    o2o_show_shop_address: bool = Field(default=False)
-    contains_multi_package: bool = Field(default=False)
-    contains_gift: bool = Field(default=False)
-    is_boutique: bool = Field(default=False)
+    # is_item_attend_promotion: bool = Field(default=False)
+    # is_genuine_guarantee: bool = Field(default=False)
+    # item_audit_time: int = Field(default=0, sa_type=sa.BigInteger)
+    # auto_off_shelf_time: int = Field(default=0, sa_type=sa.BigInteger)
+    # need_qic: bool = Field(default=False)
+    # category_audit_result: int = Field(default=0)
+    # stock_type: int = Field(default=0)
+    # min_membership_price: int = Field(default=0)
+    # o2o_show_shop_address: bool = Field(default=False)
+    # contains_multi_package: bool = Field(default=False)
+    # contains_gift: bool = Field(default=False)
+    # is_boutique: bool = Field(default=False)
     # faqs: List[dict] = Field(default=[])
     # is_nft: bool = Field(default=False)
-    item_auditing_time: int = Field(default=0, sa_type=sa.BigInteger)
+    # item_auditing_time: int = Field(default=0, sa_type=sa.BigInteger)
     platform: str = Field(default="")
-    create_at: int = Field(default_factory=lambda: int(time.time()*1000), sa_type=sa.BigInteger)
-    update_at: int = Field(default_factory=lambda: int(time.time()*1000), sa_type=sa.BigInteger)
-    create_time: datetime = Field(default_factory=datetime.now)
-    update_time: datetime = Field(default_factory=datetime.now)
+    images: str = Field(default='{}', sa_type=sa.JSON)
     
     @classmethod
     def from_api_response(cls, item: dict) -> "Product":
@@ -487,24 +478,24 @@ class Product(SQLModel, table=True):
             item_update_time=item.get('update_time', 0),
             min_price=item.get('min_price', 0),
             max_price=item.get('max_price', 0),
-            images=item.get('images', []),
+            images=json.dumps(item.get('images', [])),
             categories=item.get('categories', []),
             # is_auto_off_shelf=item.get('is_auto_off_shelf', False),
             # is_education_pricing=item.get('is_education_pricing', False),
             product_note_num=item.get('product_note_num', 0),
-            on_shelf_sku_count=item.get('on_shelf_sku_count', 0),
-            is_channel=item.get('is_channel', False),
-            category_check_status=item.get('category_check_status', 0),
+            # on_shelf_sku_count=item.get('on_shelf_sku_count', 0),
+            # is_channel=item.get('is_channel', False),
+            # category_check_status=item.get('category_check_status', 0),
             # category_check_time=item.get('category_check_time', 0),
             seller_id=item.get('seller_id', ''),
             delivery_mode=item.get('delivery_mode', 0),
             # allowance_plan=item.get('allowance_plan', False),
-            is_free_return=item.get('is_free_return', False),
+            # is_free_return=item.get('is_free_return', False),
             xsec_token=item.get('xsec_token', ''),
-            sale_qty_info=item.get('sale_qty_info', {}),
-            order_note_num=item.get('order_note_num', 0),
+            # sale_qty_info=item.get('sale_qty_info', {}),
+            # order_note_num=item.get('order_note_num', 0), 
             deleted=item.get('deleted', False),
-            check_status=item.get('check_status', 0),
+            # check_status=item.get('check_status', 0),
             sku_count=item.get('sku_count', 0),
             category_id=item.get('category_id', ''),
             on_sale_sku_count=item.get('on_sale_sku_count', 0),
@@ -513,30 +504,30 @@ class Product(SQLModel, table=True):
             first_sku_id=item.get('first_sku_id', ''),
             shipping_template_id=item.get('shipping_template_id', ''),
             image_descriptions=item.get('image_descriptions', []),
-            item_audit_status=item.get('item_audit_status', 0),
-            union_type=item.get('union_type', 0),
+            # item_audit_status=item.get('item_audit_status', 0),
+            # union_type=item.get('union_type', 0),
             total_stock=item.get('total_stock', 0),
             # expected_purchase_time=item.get('expected_purchase_time', 0),
-            use_playback=item.get('use_playback', 0),
-            sold_out_sku_count=item.get('sold_out_sku_count', 0),
-            is_o2_o=item.get('is_o2_o', False),
+            # use_playback=item.get('use_playback', 0),
+            # sold_out_sku_count=item.get('sold_out_sku_count', 0),
+            # is_o2_o=item.get('is_o2_o', False),
             brand_audit_result=item.get('brand_audit_result', 0),
             item_name_with_brand_name=item.get('item_name_with_brand_name', ''),
-            is_item_attend_promotion=item.get('is_item_attend_promotion', False),
-            is_genuine_guarantee=item.get('is_genuine_guarantee', False),
-            item_audit_time=item.get('item_audit_time', 0),
-            auto_off_shelf_time=item.get('auto_off_shelf_time', 0),
-            need_qic=item.get('need_qic', False),
-            category_audit_result=item.get('category_audit_result', 0),
-            stock_type=item.get('stock_type', 0),
-            min_membership_price=item.get('min_membership_price', 0),
-            o2o_show_shop_address=item.get('o2o_show_shop_address', False),
-            contains_multi_package=item.get('contains_multi_package', False),
-            contains_gift=item.get('contains_gift', False),
-            is_boutique=item.get('is_boutique', False),
-            faqs=item.get('faqs', []),
-            is_nft=item.get('is_nft', False),
-            item_auditing_time=item.get('item_auditing_time', 0),
+            # is_item_attend_promotion=item.get('is_item_attend_promotion', False),
+            # is_genuine_guarantee=item.get('is_genuine_guarantee', False),
+            # item_audit_time=item.get('item_audit_time', 0),
+            # auto_off_shelf_time=item.get('auto_off_shelf_time', 0),
+            # need_qic=item.get('need_qic', False),
+            # category_audit_result=item.get('category_audit_result', 0),
+            # stock_type=item.get('stock_type', 0),
+            # min_membership_price=item.get('min_membership_price', 0),
+            # o2o_show_shop_address=item.get('o2o_show_shop_address', False),
+            # contains_multi_package=item.get('contains_multi_package', False),
+            # contains_gift=item.get('contains_gift', False),
+            # is_boutique=item.get('is_boutique', False),
+            # faqs=item.get('faqs', []),
+            # is_nft=item.get('is_nft', False),
+            # item_auditing_time=item.get('item_auditing_time', 0),
             create_time=datetime.fromtimestamp(item.get('create_time', int(time.time() * 1000)) // 1000),  # Convert milliseconds to seconds
             update_time=datetime.fromtimestamp(item.get('update_time', int(time.time() * 1000)) // 1000),  # Convert milliseconds to seconds
         ) 

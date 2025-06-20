@@ -122,18 +122,7 @@ def fetch_products_task(product_service: ProductClient, logger):
             items = response['data']['items']
             logger.info("=" * 60)
             logger.info(f"🎉 本次任务完成，成功获取 {len(items)} 个商品信息")
-            
-            # 统计不同状态的商品数量
-            status_count = {}
-            for item in items:
-                status = item.get('status', 'unknown')
-                status_count[status] = status_count.get(status, 0) + 1
-            
-            if status_count:
-                logger.info("📊 商品状态统计:")
-                for status, count in status_count.items():
-                    logger.info(f"  {status}: {count} 个")
-            
+                
             # 保存结果到数据库
             save_result(response, logger)
         
