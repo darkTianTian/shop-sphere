@@ -72,7 +72,19 @@
                                                     <div class="ml-2 text-sm text-gray-900">
                                                         <div class="truncate w-40 font-medium">{{ prod.item_name }}
                                                         </div>
-                                                        <div class="text-xs text-gray-500">ID: {{ prod.item_id }}</div>
+                                                        <div class="text-xs text-gray-500 flex items-center space-x-1">
+                                                            ID: <span>{{ prod.item_id }}</span>
+                                                            <button type="button"
+                                                                class="text-gray-400 hover:text-gray-600 focus:outline-none"
+                                                                title="复制ID"
+                                                                onclick="copyToClipboard('{{ prod.item_id }}', event)"><svg
+                                                                    xmlns="http://www.w3.org/2000/svg" class="h-4 w-4"
+                                                                    viewBox="0 0 20 20" fill="currentColor">
+                                                                    <path
+                                                                        d="M6 2a2 2 0 00-2 2v9a2 2 0 002 2h1v1a2 2 0 002 2h6a2 2 0 002-2V8l-5-5H6z" />
+                                                                    <path d="M9 4h.01L14 9h-3a2 2 0 01-2-2V4z" />
+                                                                </svg></button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 {% else %}
@@ -169,6 +181,40 @@
         } catch (e) {
             console.error(e);
             alert('删除失败');
+        }
+    }
+
+    function copyToClipboard(text, evt) {
+        const btn = evt && evt.currentTarget;
+        const showTick = () => {
+            if (!btn) return;
+            const original = btn.dataset._orig || btn.innerHTML;
+            btn.dataset._orig = original;
+            btn.innerHTML = '✓';
+            setTimeout(() => { btn.innerHTML = btn.dataset._orig; }, 1500);
+        };
+
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(showTick).catch(fallback);
+        } else {
+            fallback();
+        }
+
+        function fallback() {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                showTick();
+            } catch (e) {
+                console.error(e);
+                alert('复制失败');
+            }
         }
     }
 </script>
