@@ -1,0 +1,32 @@
+{% extends "admin/base.html" %}
+
+{% block title %}管理首页 - ShopSphere{% endblock %}
+
+{% block content %}
+<h2 class="text-2xl font-semibold mb-6">系统概览</h2>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    <!-- 用户数 -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <p class="text-sm text-gray-500">总用户数</p>
+        <p class="text-3xl font-bold text-primary mt-2">{{ stats.total_users }}</p>
+    </div>
+    <!-- 商品数 -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <p class="text-sm text-gray-500">总商品数</p>
+        <p class="text-3xl font-bold text-primary mt-2">{{ stats.total_products }}</p>
+    </div>
+</div>
+
+<h2 class="text-xl font-semibold mt-10 mb-4">最近活动</h2>
+<ul class="bg-white shadow rounded-lg divide-y divide-gray-200">
+    {% if recent_activities %}
+    {% for act in recent_activities %}
+    <li class="p-4 text-sm text-gray-700">
+        {{ act.description }}<span class="ml-2 text-gray-400 text-xs">{{ act.time }}</span>
+    </li>
+    {% endfor %}
+    {% else %}
+    <li class="p-4 text-sm text-gray-500">暂无活动</li>
+    {% endif %}
+</ul>
+{% endblock %}

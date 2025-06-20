@@ -3,14 +3,16 @@
 """
 
 from typing import List, Optional
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func
 
 from app.auth.config import current_superuser, fastapi_users
 from app.internal.db import engine
 from app.models.user import User, UserRole
+from app.models.product import Product
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 templates = Jinja2Templates(directory="app/templates")
@@ -30,9 +32,42 @@ async def admin_home(request: Request, user: Optional[User] = Depends(current_su
     """管理后台首页"""
     if not user:
         return RedirectResponse(url="/admin/login")
+    
+    with Session(engine) as session:
+        # 获取统计数据
+        total_users = session.exec(select(func.count(User.id))).first()
+        total_products = session.exec(select(func.count(Product.id))).first()
+        
+        # 获取最近活动（这里示例使用最近的用户登录记录）
+        recent_logins = session.exec(
+            select(User)
+            .where(User.last_login != None)
+            .order_by(User.last_login.desc())
+            .limit(5)
+        ).all()
+        
+        recent_activities = [
+            {
+                "description": f"用户 {user.username} 登录了系统",
+                "time": user.last_login
+            }
+            for user in recent_logins
+            if user.last_login
+        ]
+        
+        stats = {
+            "total_users": total_users or 0,
+            "total_products": total_products or 0,
+        }
+    
     return templates.TemplateResponse(
-        "admin/base.html",
-        {"request": request, "user": user}
+        "admin/home.html",
+        {
+            "request": request,
+            "user": user,
+            "stats": stats,
+            "recent_activities": recent_activities
+        }
     )
 
 

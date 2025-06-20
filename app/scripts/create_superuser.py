@@ -8,7 +8,7 @@ import sys
 
 from sqlmodel import Session
 from app.internal.db import engine
-from app.models.user import User, UserRole
+from app.models.user import User, UserRole, UserCreate
 from app.auth.config import get_user_manager, get_user_db
 
 async def create_superuser():
@@ -27,17 +27,24 @@ async def create_superuser():
         user_db = await anext(get_user_db())
         user_manager = await anext(get_user_manager(user_db))
         
-        user = await user_manager.create(
-            {
-                "email": email,
-                "username": username,
-                "password": password,
-                "is_superuser": True,
-                "is_active": True,
-                "is_verified": True,
-                "role": UserRole.SUPER_ADMIN,
-            }
+        user_create = UserCreate(
+            email=email,
+            username=username,
+            password=password,
+            role=UserRole.SUPER_ADMIN
         )
+        
+        user = await user_manager.create(user_create)
+        
+        # 设置额外的超级管理员属性
+        with Session(engine) as session:
+            db_user = session.get(User, user.id)
+            if db_user:
+                db_user.is_superuser = True
+                db_user.is_active = True
+                db_user.is_verified = True
+                session.commit()
+        
         print(f"超级管理员 {user.username} 创建成功！")
         
     except Exception as e:

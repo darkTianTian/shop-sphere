@@ -4,7 +4,7 @@
 """
 
 import os
-from typing import Optional
+from typing import Optional, Any
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, FastAPIUsers
 from fastapi_users.authentication import (
@@ -37,6 +37,7 @@ class UserManager(BaseUserManager[User, int]):
         self,
         user: User,
         request: Optional[Request] = None,
+        response: Optional[Any] = None,
     ):
         """用户登录后的回调"""
         print(f"用户 {user.email} 登录成功")
@@ -47,6 +48,11 @@ class UserManager(BaseUserManager[User, int]):
             if db_user:
                 db_user.last_login = datetime.now()
                 session.commit()
+
+    # 新增: 解析用户ID（FastAPI-Users v14+ 需要）
+    def parse_id(self, user_id: str) -> int:  # type: ignore[override]
+        """将字符串类型的 ID 转换为 int 主键"""
+        return int(user_id)
 
 
 async def get_user_db():
