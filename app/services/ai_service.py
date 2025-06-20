@@ -151,6 +151,7 @@ class DeepSeekAIService:
             self.logger.info(f"调用 DeepSeek API - 模型: {model_name} ({model_config['description']}) - 北京时间: {beijing_time}")
             
             client = OpenAI(api_key=self.config.get_api_key(), base_url=self.config.get_base_url())
+            self.logger.info(f"base_url: {self.config.get_base_url()}")
             response = client.chat.completions.create(
                 model=model_name,
                 messages=[{"role": "user", "content": prompt}],
