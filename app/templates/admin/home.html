@@ -1,32 +1,117 @@
 {% extends "admin/base.html" %}
 
-{% block title %}管理首页 - ShopSphere{% endblock %}
+{% block title %}首页 - ShopSphere{% endblock %}
 
 {% block content %}
-<h2 class="text-2xl font-semibold mb-6">系统概览</h2>
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-    <!-- 用户数 -->
-    <div class="bg-white shadow rounded-lg p-6">
-        <p class="text-sm text-gray-500">总用户数</p>
-        <p class="text-3xl font-bold text-primary mt-2">{{ stats.total_users }}</p>
+<div class="space-y-6">
+    <!-- 统计卡片 -->
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {% if is_superuser %}
+        <!-- 总用户数（仅超级管理员可见） -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z">
+                            </path>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">
+                                总用户数
+                            </dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-gray-900">
+                                    {{ stats.total_users }}
+                                </div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 总商品数（所有人可见） -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">
+                                总商品数
+                            </dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-gray-900">
+                                    {{ stats.total_products }}
+                                </div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    <!-- 商品数 -->
-    <div class="bg-white shadow rounded-lg p-6">
-        <p class="text-sm text-gray-500">总商品数</p>
-        <p class="text-3xl font-bold text-primary mt-2">{{ stats.total_products }}</p>
+
+    <!-- 最近活动 -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div class="px-4 py-5 sm:px-6">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">
+                {% if is_superuser %}
+                系统活动
+                {% else %}
+                我的活动
+                {% endif %}
+            </h3>
+        </div>
+        <div class="border-t border-gray-200">
+            {% if recent_activities %}
+            <ul class="divide-y divide-gray-200">
+                {% for activity in recent_activities %}
+                <li class="px-4 py-4">
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                            {% if activity.type == "login" %}
+                            <svg class="h-5 w-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1">
+                                </path>
+                            </svg>
+                            {% else %}
+                            <svg class="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z">
+                                </path>
+                            </svg>
+                            {% endif %}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900">
+                                {{ activity.description }}
+                            </p>
+                            <p class="text-sm text-gray-500">
+                                {{ activity.time.strftime("%Y-%m-%d %H:%M:%S") }}
+                            </p>
+                        </div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="px-4 py-5 sm:px-6 text-center text-gray-500">
+                暂无活动记录
+            </div>
+            {% endif %}
+        </div>
     </div>
 </div>
-
-<h2 class="text-xl font-semibold mt-10 mb-4">最近活动</h2>
-<ul class="bg-white shadow rounded-lg divide-y divide-gray-200">
-    {% if recent_activities %}
-    {% for act in recent_activities %}
-    <li class="p-4 text-sm text-gray-700">
-        {{ act.description }}<span class="ml-2 text-gray-400 text-xs">{{ act.time }}</span>
-    </li>
-    {% endfor %}
-    {% else %}
-    <li class="p-4 text-sm text-gray-500">暂无活动</li>
-    {% endif %}
-</ul>
 {% endblock %}

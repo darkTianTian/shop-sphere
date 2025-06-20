@@ -1,0 +1,118 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ "编辑" if target_user else "创建" }}用户 - ShopSphere{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow overflow-hidden sm:rounded-lg">
+    <div class="px-4 py-5 sm:px-6">
+        <h3 class="text-lg leading-6 font-medium text-gray-900">
+            {{ "编辑" if target_user else "创建" }}用户
+        </h3>
+    </div>
+    <div class="border-t border-gray-200">
+        <form method="post" class="space-y-6 p-6" id="userForm">
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-700">
+                    邮箱地址
+                </label>
+                <div class="mt-1">
+                    <input type="email" name="email" id="email" required
+                        class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                        value="{{ target_user.email if target_user else '' }}" {{ "readonly" if target_user else "" }}>
+                </div>
+            </div>
+
+            <div>
+                <label for="username" class="block text-sm font-medium text-gray-700">
+                    用户名
+                </label>
+                <div class="mt-1">
+                    <input type="text" name="username" id="username" required
+                        class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                        value="{{ target_user.username if target_user else '' }}">
+                </div>
+            </div>
+
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700">
+                    {{ "新密码（留空则不修改）" if target_user else "密码" }}
+                </label>
+                <div class="mt-1">
+                    <input type="password" name="password" id="password" {{ "" if target_user else "required" }}
+                        class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                        minlength="6">
+                </div>
+            </div>
+
+            <div>
+                <label for="role" class="block text-sm font-medium text-gray-700">
+                    角色
+                </label>
+                <div class="mt-1">
+                    <select id="role" name="role" required
+                        class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md">
+                        {% for role in roles %}
+                        <option value="{{ role }}" {{ "selected" if target_user and target_user.role.value==role else ""
+                            }}>
+                            {{ role }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="is_active" name="is_active" value="true" {{ "checked" if not target_user
+                        or target_user.is_active else "" }}
+                        class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                    <label for="is_active" class="ml-2 block text-sm text-gray-900">
+                        账户激活
+                    </label>
+                </div>
+                <p class="mt-1 text-sm text-gray-500">
+                    未激活的用户将无法登录系统
+                </p>
+            </div>
+
+            <div class="flex justify-end space-x-4">
+                <a href="/admin/users"
+                    class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                    取消
+                </a>
+                <button type="submit"
+                    class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                    {{ "保存" if target_user else "创建" }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.getElementById('userForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        try {
+            const form = e.target;
+            const formData = new FormData(form);
+
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                window.location.href = '/admin/users';
+            } else {
+                const data = await response.json();
+                alert(data.detail || '操作失败');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('操作失败');
+        }
+    });
+</script>
+{% endblock %}

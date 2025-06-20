@@ -30,10 +30,12 @@
                         <a href="/admin" class="text-xl font-bold text-primary">ShopSphere</a>
                     </div>
                     <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        {% if user.role == "super_admin" %}
                         <a href="/admin/users"
                             class="{% if request.path.startswith('/admin/users') %}border-primary text-gray-900{% else %}border-transparent text-gray-500{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             用户管理
                         </a>
+                        {% endif %}
                         <a href="/admin/products"
                             class="{% if request.path.startswith('/admin/products') %}border-primary text-gray-900{% else %}border-transparent text-gray-500{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             商品管理
@@ -51,8 +53,17 @@
                 <div class="hidden sm:ml-6 sm:flex sm:items-center">
                     <div class="ml-3 relative">
                         <div class="flex items-center">
-                            <span class="text-gray-700 text-sm mr-4">{{ user.username }}</span>
-                            <a href="/auth/cookie/logout" class="text-gray-500 hover:text-gray-700">退出</a>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-gray-700 text-sm">{{ user.username }}</span>
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                    {% if user.role == 'super_admin' %}bg-purple-100 text-purple-800
+                                    {% elif user.role == 'admin' %}bg-blue-100 text-blue-800
+                                    {% elif user.role == 'editor' %}bg-green-100 text-green-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ user.role }}
+                                </span>
+                            </div>
+                            <a href="/auth/cookie/logout" class="ml-4 text-gray-500 hover:text-gray-700">退出</a>
                         </div>
                     </div>
                 </div>
