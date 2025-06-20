@@ -9,12 +9,15 @@ from app.internal.db import engine
 from app.models.video import VideoMaterial, VideoStatus
 from app.routers.admin import templates as shared_templates
 from app.models.product import Product
+from app.services.oss_service import OSSService
 
 router = APIRouter(prefix="/admin", tags=["videos"])
 
 templates: Jinja2Templates = shared_templates
 
 PAGE_SIZE = 30
+
+oss_service = OSSService()
 
 @router.get("/videos", response_class=HTMLResponse)
 async def list_videos(request: Request, page: int = 1, current_user: dict = Depends(require_admin())):
@@ -44,4 +47,23 @@ async def list_videos(request: Request, page: int = 1, current_user: dict = Depe
                 "has_prev": page>1,
                 "has_next": page<total_pages
             }
-        ) 
+        )
+
+@router.get("/videos/{video_id}/play")
+async def play_video(video_id: int, current_user=Depends(require_admin())):
+    """
+    返回可以直接播放的临时 URL（有效 1 小时）
+    """
+    with Session(engine) as s:
+        v = s.get(VideoMaterial, video_id)
+        if not v:
+            raise HTTPException(404, "视频不存在")
+        if not oss_service.is_available():
+            raise HTTPException(500, "OSS 未配置")
+
+        # object_key 就是表里保存的 oss_object_key
+        signed_url = oss_service.bucket.sign_url(
+            'GET', v.oss_object_key, expires=3600
+        )
+        #TODO: 这里需要做redis缓存
+        return {"url": signed_url}

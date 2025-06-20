@@ -49,11 +49,18 @@
                                     <tbody class="bg-white divide-y divide-gray-200">
                                         {% for v in videos %}
                                         <tr>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ v.id }}
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {{ v.id }}
                                             </td>
-                                            <td
-                                                class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 underline max-w-xs truncate">
-                                                <a href="{{ v.url }}" target="_blank">{{ v.url }}</a>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                                <button onclick="openPlayer('{{ v.id }}')"
+                                                    class="inline-flex items-center px-2.5 py-0.5 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium transition">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1"
+                                                        viewBox="0 0 20 20" fill="currentColor">
+                                                        <path d="M6 4l10 6-10 6V4z" />
+                                                    </svg>
+                                                    播放
+                                                </button>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 {% set prod = product_map.get(v.item_id) %}
@@ -145,6 +152,13 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<div id="playerModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+    <div class="absolute inset-0 bg-black opacity-60" onclick="closePlayer()"></div>
+    <div class="relative bg-black rounded-lg shadow-lg max-w-md w-full">
+        <video id="videoPlayer" class="w-full h-auto" controls></video>
+    </div>
+</div>
+
 <script>
     function copyToClipboard(text, evt) {
         const btn = evt && evt.currentTarget;
@@ -175,5 +189,34 @@
             } catch (e) { console.error(e); alert('复制失败'); }
         }
     }
+
+    async function openPlayer(id) {
+        try {
+            const r = await fetch(`/admin/videos/${id}/play`);
+            const data = await r.json();
+            const v = document.getElementById('videoPlayer');
+            v.src = data.url; v.play();
+            const modal = document.getElementById('playerModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        } catch (e) { alert('无法播放视频'); }
+    }
+    function closePlayer() {
+        const modal = document.getElementById('playerModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        const v = document.getElementById('videoPlayer');
+        v.pause(); v.src = '';
+    }
+
+    // 绑定 Esc 退出
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('playerModal');
+            if (!modal.classList.contains('hidden')) {
+                closePlayer();
+            }
+        }
+    });
 </script>
 {% endblock %}
