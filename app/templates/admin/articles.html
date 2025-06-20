@@ -72,18 +72,17 @@
                                                     <div class="ml-2 text-sm text-gray-900">
                                                         <div class="truncate w-40 font-medium">{{ prod.item_name }}
                                                         </div>
-                                                        <div class="text-xs text-gray-500 flex items-center space-x-1">
-                                                            ID: <span>{{ prod.item_id }}</span>
-                                                            <button type="button"
-                                                                class="text-gray-400 hover:text-gray-600 focus:outline-none"
-                                                                title="复制ID"
-                                                                onclick="copyToClipboard('{{ prod.item_id }}', event)"><svg
-                                                                    xmlns="http://www.w3.org/2000/svg" class="h-4 w-4"
-                                                                    viewBox="0 0 20 20" fill="currentColor">
-                                                                    <path
-                                                                        d="M6 2a2 2 0 00-2 2v9a2 2 0 002 2h1v1a2 2 0 002 2h6a2 2 0 002-2V8l-5-5H6z" />
-                                                                    <path d="M9 4h.01L14 9h-3a2 2 0 01-2-2V4z" />
-                                                                </svg></button>
+                                                        <div class="group relative inline-flex items-center cursor-pointer select-none rounded bg-gray-50 hover:bg-gray-100 px-1.5 py-0.5 text-xs font-mono text-gray-700 transition-all copy-wrap"
+                                                            onclick="copyToClipboard('{{ prod.item_id }}', event)">
+                                                            <span>{{ prod.item_id }}</span>
+                                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                                                class="copy-icon h-4 w-4 ml-1 text-gray-400 opacity-0 group-hover:opacity-100 transform group-hover:scale-100 scale-90 transition"
+                                                                viewBox="0 0 20 20" fill="currentColor">
+                                                                <path
+                                                                    d="M8 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V6l-6-4H8z" />
+                                                            </svg>
+                                                            <span
+                                                                class="copy-tick absolute right-0 top-1/2 -translate-y-1/2 h-4 w-4 flex items-center justify-center text-green-600 text-sm opacity-0">✅</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -186,16 +185,25 @@
 
     function copyToClipboard(text, evt) {
         const btn = evt && evt.currentTarget;
-        const showTick = () => {
+
+        const flash = () => {
             if (!btn) return;
-            const original = btn.dataset._orig || btn.innerHTML;
-            btn.dataset._orig = original;
-            btn.innerHTML = '✓';
-            setTimeout(() => { btn.innerHTML = btn.dataset._orig; }, 1500);
+            btn.classList.add('ring-2', 'ring-green-400');
+            const icon = btn.querySelector('.copy-icon');
+            const tick = btn.querySelector('.copy-tick');
+            if (icon && tick) {
+                icon.classList.add('invisible');
+                tick.classList.remove('opacity-0');
+                setTimeout(() => {
+                    btn.classList.remove('ring-2', 'ring-green-400');
+                    icon.classList.remove('invisible');
+                    tick.classList.add('opacity-0');
+                }, 800);
+            }
         };
 
         if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(text).then(showTick).catch(fallback);
+            navigator.clipboard.writeText(text).then(flash).catch(() => fallback());
         } else {
             fallback();
         }
@@ -210,7 +218,7 @@
                 ta.select();
                 document.execCommand('copy');
                 document.body.removeChild(ta);
-                showTick();
+                flash();
             } catch (e) {
                 console.error(e);
                 alert('复制失败');
