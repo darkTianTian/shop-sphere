@@ -10,6 +10,7 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select, func
 
 from app.auth.config import current_superuser, fastapi_users
+from app.auth.decorators import require_admin, require_superuser, require_admin_or_superuser
 from app.internal.db import engine
 from app.models.user import User, UserRole
 from app.models.product import Product
@@ -28,13 +29,11 @@ async def admin_login(request: Request):
 
 
 @router.get("/", response_class=HTMLResponse)
-async def admin_home(request: Request):
+async def admin_home(
+    request: Request,
+    current_user: dict = Depends(require_admin())
+):
     """管理后台首页"""
-    # 从会话中获取用户信息
-    user = request.session.get("user")
-    if not user:
-        return RedirectResponse(url="/admin/login")
-    
     with Session(engine) as session:
         # 获取统计数据
         total_users = session.exec(select(func.count(User.id))).first()
@@ -66,7 +65,7 @@ async def admin_home(request: Request):
         "admin/home.html",
         {
             "request": request,
-            "user": user,
+            "user": current_user,
             "stats": stats,
             "recent_activities": recent_activities
         }
@@ -74,40 +73,25 @@ async def admin_home(request: Request):
 
 
 @router.get("/users", response_class=HTMLResponse)
-async def list_users(request: Request):
+async def list_users(
+    request: Request,
+    current_user: dict = Depends(require_superuser())
+):
     """用户列表页面"""
-    # 从会话中获取用户信息
-    user = request.session.get("user")
-    if not user:
-        return RedirectResponse(url="/admin/login")
-    
-    # 检查是否是管理员
-    if not user.get("is_superuser"):
-        raise HTTPException(status_code=403, detail="需要管理员权限")
-    
     with Session(engine) as session:
         users = session.exec(select(User)).all()
         return templates.TemplateResponse(
             "admin/users.html",
-            {"request": request, "user": user, "users": users}
+            {"request": request, "user": current_user, "users": users}
         )
 
 
 @router.delete("/users/{user_id}")
 async def delete_user(
     user_id: int,
-    request: Request
+    current_user: dict = Depends(require_superuser())
 ):
     """删除用户"""
-    # 从会话中获取用户信息
-    current_user = request.session.get("user")
-    if not current_user:
-        raise HTTPException(status_code=401, detail="需要登录")
-    
-    # 检查是否是管理员
-    if not current_user.get("is_superuser"):
-        raise HTTPException(status_code=403, detail="需要管理员权限")
-    
     if user_id == current_user.get("id"):
         raise HTTPException(status_code=400, detail="不能删除当前用户")
     
