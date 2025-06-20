@@ -51,9 +51,10 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /opt/shop-sphere/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - /opt/shop-sphere/uploads:/var/www/uploads:ro # 若要直接服务静态上传
       - /opt/shop-sphere/logs/nginx:/var/log/nginx
+    command: nginx_keentune.sh
     depends_on:
       - web
     networks:
