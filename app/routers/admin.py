@@ -298,4 +298,44 @@ async def delete_user(
             raise HTTPException(status_code=400, detail="不能删除超级管理员")
         session.delete(user)
         session.commit()
+        return {"ok": True}
+
+
+@router.get("/products", response_class=HTMLResponse)
+async def list_products(
+    request: Request,
+    current_user: dict = Depends(require_admin())
+):
+    """商品列表页面"""
+    with Session(engine) as session:
+        products = session.exec(
+            select(Product)
+            .order_by(Product.id.desc())
+        ).all()
+        
+        return templates.TemplateResponse(
+            "admin/products.html",
+            {
+                "request": request,
+                "user": current_user,
+                "products": products
+            }
+        )
+
+
+@router.delete("/products/{product_id}")
+async def delete_product(
+    product_id: int,
+    current_user: dict = Depends(require_admin())
+):
+    """删除商品"""
+    with Session(engine) as session:
+        product = session.get(Product, product_id)
+        if not product:
+            raise HTTPException(status_code=404, detail="商品不存在")
+        
+        # TODO: 检查商品是否可以删除（例如是否有关联的订单）
+        
+        session.delete(product)
+        session.commit()
         return {"ok": True} 
