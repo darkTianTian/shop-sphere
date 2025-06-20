@@ -48,6 +48,34 @@ class UserManager(BaseUserManager[User, int]):
             if db_user:
                 db_user.last_login = datetime.now()
                 session.commit()
+                
+        # 将用户信息存储到会话中
+        if request and hasattr(request, "session"):
+            # 清除旧的session数据
+            request.session.clear()
+            
+            # 设置新的session数据
+            request.session["user"] = {
+                "id": user.id,
+                "email": user.email,
+                "username": user.username,
+                "is_superuser": user.is_superuser,
+                "role": user.role,
+                "login_time": datetime.now().isoformat()
+            }
+            print(f"Session已设置: {request.session.get('user')}")
+
+    async def on_after_logout(
+        self,
+        user: User,
+        request: Optional[Request] = None,
+        response: Optional[Any] = None,
+    ):
+        """用户登出后的回调"""
+        print(f"用户 {user.email} 登出成功")
+        # 清除会话中的用户信息
+        if request and request.session:
+            request.session.pop("user", None)
 
     # 新增: 解析用户ID（FastAPI-Users v14+ 需要）
     def parse_id(self, user_id: str) -> int:  # type: ignore[override]
@@ -72,6 +100,8 @@ cookie_transport = CookieTransport(
     cookie_max_age=3600 * 24 * 7,  # 7天
     cookie_httponly=True,
     cookie_secure=False,  # 生产环境改为 True
+    cookie_samesite="lax",
+    cookie_path="/",
 )
 
 # Bearer Token 认证传输（用于API）

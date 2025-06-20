@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.routers import video, health, auth, admin
 from app.settings import load_settings
+from app.middleware.admin_auth import AdminAuthMiddleware
 
 app = FastAPI(
     title="ShopSphere API",
@@ -15,20 +16,23 @@ app = FastAPI(
 # 加载配置
 settings = load_settings()
 
-# 添加CORS中间件
+# 添加管理后台权限验证中间件（最外层）
+app.add_middleware(AdminAuthMiddleware)
+
+# 配置会话（中间层）
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY,
+    max_age=3600 * 24 * 7,  # 7天
+)
+
+# 添加CORS中间件（最内层）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-)
-
-# 配置会话
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=settings.SECRET_KEY,
-    max_age=3600 * 24 * 7,  # 7天
 )
 
 # 挂载静态文件

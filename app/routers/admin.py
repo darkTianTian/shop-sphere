@@ -28,8 +28,10 @@ async def admin_login(request: Request):
 
 
 @router.get("/", response_class=HTMLResponse)
-async def admin_home(request: Request, user: Optional[User] = Depends(current_superuser)):
+async def admin_home(request: Request):
     """管理后台首页"""
+    # 从会话中获取用户信息
+    user = request.session.get("user")
     if not user:
         return RedirectResponse(url="/admin/login")
     
@@ -72,11 +74,17 @@ async def admin_home(request: Request, user: Optional[User] = Depends(current_su
 
 
 @router.get("/users", response_class=HTMLResponse)
-async def list_users(
-    request: Request,
-    user: User = Depends(current_superuser),
-):
+async def list_users(request: Request):
     """用户列表页面"""
+    # 从会话中获取用户信息
+    user = request.session.get("user")
+    if not user:
+        return RedirectResponse(url="/admin/login")
+    
+    # 检查是否是管理员
+    if not user.get("is_superuser"):
+        raise HTTPException(status_code=403, detail="需要管理员权限")
+    
     with Session(engine) as session:
         users = session.exec(select(User)).all()
         return templates.TemplateResponse(
@@ -88,10 +96,19 @@ async def list_users(
 @router.delete("/users/{user_id}")
 async def delete_user(
     user_id: int,
-    current_user: User = Depends(current_superuser),
+    request: Request
 ):
     """删除用户"""
-    if user_id == current_user.id:
+    # 从会话中获取用户信息
+    current_user = request.session.get("user")
+    if not current_user:
+        raise HTTPException(status_code=401, detail="需要登录")
+    
+    # 检查是否是管理员
+    if not current_user.get("is_superuser"):
+        raise HTTPException(status_code=403, detail="需要管理员权限")
+    
+    if user_id == current_user.get("id"):
         raise HTTPException(status_code=400, detail="不能删除当前用户")
     
     with Session(engine) as session:

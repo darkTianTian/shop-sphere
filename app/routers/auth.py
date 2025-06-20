@@ -3,14 +3,17 @@
 提供用户注册、登录、登出等功能
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
+from fastapi.responses import RedirectResponse
 from sqlmodel import Session, select
+from typing import Optional
 
 from app.auth.config import (
     fastapi_users,
     cookie_auth_backend,
     bearer_auth_backend,
     current_active_user,
+    get_jwt_strategy
 )
 from app.auth.dependencies import require_super_admin
 from app.models.user import User, UserCreate, UserRead, UserUpdate
@@ -81,4 +84,25 @@ async def list_users(
                 ) for user in users
             ],
             "total": len(users)
-        } 
+        }
+
+# 添加自定义登出路由
+@router.get("/auth/cookie/logout")
+async def logout(request: Request):
+    """自定义登出处理，清除session并重定向到登录页面"""
+    response = RedirectResponse(url="/admin/login?logged_out=true", status_code=302)
+    
+    # 清除session
+    if hasattr(request, "session"):
+        request.session.clear()
+    
+    # 清除认证cookie
+    response.delete_cookie(
+        "auth_token",
+        domain=None,
+        path="/",
+        secure=False,  # 生产环境设为True
+        httponly=True
+    )
+    
+    return response 
