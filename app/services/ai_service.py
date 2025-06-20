@@ -31,7 +31,8 @@ class DeepSeekConfig:
     @classmethod
     def get_base_url(cls) -> str:
         """获取 API 基础URL"""
-        return os.getenv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com')
+        env_url = os.getenv('DEEPSEEK_BASE_URL')
+        return env_url if env_url is not None else 'https://api.deepseek.com'
     
     @classmethod
     def is_configured(cls) -> bool:
