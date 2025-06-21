@@ -104,7 +104,7 @@ async def play_video(video_id: int, current_user: dict = Depends(require_admin()
 
 # ------------------ 视频上传和管理API ------------------
 
-@router.post("/api/v1/video-materials/upload", response_model=VideoMaterialUploadResponse)
+@router.post("/videos/upload", response_model=VideoMaterialUploadResponse)
 async def upload_video_material(
     video_file: UploadFile = File(..., description="视频文件"),
     item_id: str = Form(..., description="商品ID"),
