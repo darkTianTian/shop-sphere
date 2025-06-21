@@ -38,8 +38,25 @@
                                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                                                 时长(s)</th>
                                             <th
-                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                可用</th>
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider group relative whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    状态
+                                                    <svg class="ml-1 h-4 w-4 text-gray-400"
+                                                        xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                                                        fill="currentColor">
+                                                        <path fill-rule="evenodd"
+                                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                                            clip-rule="evenodd" />
+                                                    </svg>
+                                                    <div
+                                                        class="absolute hidden group-hover:block bg-black bg-opacity-75 text-white text-xs normal-case rounded-lg p-2 -left-16 top-8 w-48 z-10 whitespace-normal leading-5">
+                                                        脚本会在发送笔记时自动选择启用的视频发送
+                                                        <div
+                                                            class="absolute -top-1 left-24 w-3 h-3 bg-black bg-opacity-75 transform rotate-45">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </th>
                                             <th
                                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                                                 发布次数</th>
@@ -95,7 +112,21 @@
                                         <div class="text-sm font-medium text-gray-900 line-clamp-2 max-w-xs">{{
                                             prod.item_name }}</div>
                                         <div class="flex items-center text-xs text-gray-500 space-x-1 mt-1">
-                                            <span>ID:</span><span>{{ prod.item_id }}</span>
+                                            <span>ID:</span>
+                                            <div class="group relative inline-flex items-center cursor-pointer select-none rounded bg-gray-50 hover:bg-gray-100 px-1.5 py-0.5 font-mono text-gray-700 transition-all"
+                                                onclick="copyToClipboard('{{ prod.item_id }}', event)">
+                                                <span>{{ prod.item_id }}</span>
+                                                <div class="relative w-4 h-4 ml-1">
+                                                    <svg class="copy-icon absolute inset-0 text-gray-400 opacity-0 group-hover:opacity-100 transform group-hover:scale-100 scale-90 transition"
+                                                        viewBox="0 0 20 20" fill="currentColor">
+                                                        <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                                                        <path
+                                                            d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                                                    </svg>
+                                                    <span
+                                                        class="copy-tick absolute inset-0 flex items-center justify-center text-green-600 text-sm opacity-0">✅</span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -105,9 +136,12 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ (v.duration // 1000) }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span
-                                    class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {% if v.is_enabled %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">{{
-                                    '启用' if v.is_enabled else '禁用' }}</span></td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <button onclick="toggleStatus({{ v.id }}, {{ 'true' if v.is_enabled else 'false' }})"
+                                    class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer {% if v.is_enabled %}bg-green-100 text-green-800 hover:bg-green-200{% else %}bg-red-100 text-red-800 hover:bg-red-200{% endif %}">
+                                    {{ '启用' if v.is_enabled else '禁用' }}
+                                </button>
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ v.publish_cnt }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{
                                 v.create_time|datetimeformat }}</td>
@@ -549,6 +583,43 @@
         }
     });
 
+    // 复制到剪贴板
+    function copyToClipboard(text, event) {
+        event.stopPropagation();  // 阻止事件冒泡
+
+        // 创建临时输入框
+        const input = document.createElement('input');
+        input.style.position = 'fixed';
+        input.style.opacity = 0;
+        input.value = text;
+        document.body.appendChild(input);
+        input.select();
+
+        try {
+            // 执行复制
+            document.execCommand('copy');
+
+            // 显示复制成功标记
+            const copyWrap = event.currentTarget;
+            const copyIcon = copyWrap.querySelector('.copy-icon');
+            const copyTick = copyWrap.querySelector('.copy-tick');
+
+            copyIcon.style.display = 'none';
+            copyTick.style.opacity = '1';
+
+            // 1秒后恢复原样
+            setTimeout(() => {
+                copyIcon.style.display = '';
+                copyTick.style.opacity = '0';
+            }, 1000);
+        } catch (err) {
+            console.error('复制失败:', err);
+        }
+
+        // 清理临时输入框
+        document.body.removeChild(input);
+    }
+
     // 显示Toast提示
     function showToast(message, type = 'success') {
         const toast = document.getElementById('toast');
@@ -571,6 +642,37 @@
         setTimeout(() => {
             toast.classList.add('translate-x-full', 'opacity-0');
         }, 3000);
+    }
+
+    // 切换视频状态
+    async function toggleStatus(videoId, currentStatus) {
+        try {
+            const response = await fetch(`/admin/videos/published/${videoId}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    is_enabled: !currentStatus
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || '更新失败');
+            }
+
+            const result = await response.json();
+            if (result.success) {
+                showToast('状态更新成功', 'success');
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                throw new Error(result.message || '更新失败');
+            }
+        } catch (error) {
+            console.error('更新状态失败:', error);
+            showToast(error.message || '更新失败', 'error');
+        }
     }
 </script>
 {% endblock %}

@@ -108,17 +108,19 @@
                                             prod.item_name }}</div>
                                         <div class="flex items-center text-xs text-gray-500 space-x-1 mt-1">
                                             <span>ID:</span>
-                                            <div class="group relative inline-flex items-center cursor-pointer select-none rounded bg-gray-50 hover:bg-gray-100 px-1.5 py-0.5 font-mono text-gray-700 transition-all copy-wrap"
+                                            <div class="group relative inline-flex items-center cursor-pointer select-none rounded bg-gray-50 hover:bg-gray-100 px-1.5 py-0.5 font-mono text-gray-700 transition-all"
                                                 onclick="copyToClipboard('{{ prod.item_id }}', event)">
                                                 <span>{{ prod.item_id }}</span>
-                                                <svg xmlns="http://www.w3.org/2000/svg"
-                                                    class="copy-icon h-4 w-4 ml-1 text-gray-400 opacity-0 group-hover:opacity-100 transform group-hover:scale-100 scale-90 transition"
-                                                    viewBox="0 0 20 20" fill="currentColor">
-                                                    <path
-                                                        d="M8 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V6l-6-4H8z" />
-                                                </svg>
-                                                <span
-                                                    class="copy-tick absolute right-0 top-1/2 -translate-y-1/2 h-4 w-4 flex items-center justify-center text-green-600 text-sm opacity-0">✅</span>
+                                                <div class="relative w-4 h-4 ml-1">
+                                                    <svg class="copy-icon absolute inset-0 text-gray-400 opacity-0 group-hover:opacity-100 transform group-hover:scale-100 scale-90 transition"
+                                                        viewBox="0 0 20 20" fill="currentColor">
+                                                        <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                                                        <path
+                                                            d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                                                    </svg>
+                                                    <span
+                                                        class="copy-tick absolute inset-0 flex items-center justify-center text-green-600 text-sm opacity-0">✅</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -749,5 +751,42 @@
             closePlayer();
         }
     });
+
+    // 复制到剪贴板
+    function copyToClipboard(text, event) {
+        event.stopPropagation();  // 阻止事件冒泡
+
+        // 创建临时输入框
+        const input = document.createElement('input');
+        input.style.position = 'fixed';
+        input.style.opacity = 0;
+        input.value = text;
+        document.body.appendChild(input);
+        input.select();
+
+        try {
+            // 执行复制
+            document.execCommand('copy');
+
+            // 显示复制成功标记
+            const copyWrap = event.currentTarget;
+            const copyIcon = copyWrap.querySelector('.copy-icon');
+            const copyTick = copyWrap.querySelector('.copy-tick');
+
+            copyIcon.style.display = 'none';
+            copyTick.style.opacity = '1';
+
+            // 1秒后恢复原样
+            setTimeout(() => {
+                copyIcon.style.display = '';
+                copyTick.style.opacity = '0';
+            }, 1000);
+        } catch (err) {
+            console.error('复制失败:', err);
+        }
+
+        // 清理临时输入框
+        document.body.removeChild(input);
+    }
 </script>
 {% endblock %}

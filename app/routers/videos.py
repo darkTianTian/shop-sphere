@@ -45,7 +45,8 @@ class VideoMaterialUploadResponse(BaseModel):
     video_material_info: Optional[dict] = None
 
 class VideoStatusUpdate(BaseModel):
-    status: str
+    """视频状态更新模型"""
+    is_enabled: bool
 
 # ------------------ 视频管理页面 ------------------
 
@@ -426,11 +427,8 @@ async def list_published_videos(request: Request, page: int = 1, current_user: d
         thumb_map = {}
         if oss_service.is_available():
             for v in videos:
-                if getattr(v, "cover_url", None):
-                    thumb_map[v.id] = v.cover_url
-                else:
-                    style = "video/snapshot,t_1000,f_jpg,w_320,m_fast"
-                    thumb_map[v.id] = oss_service.bucket.sign_url("GET", v.file_id, 3600, params={"x-oss-process": style})
+                style = "video/snapshot,t_1000,f_jpg,w_320,m_fast"
+                thumb_map[v.id] = oss_service.bucket.sign_url("GET", v.file_id, 3600, params={"x-oss-process": style})
 
         return templates.TemplateResponse(
             "admin/published_videos.html",
@@ -539,3 +537,36 @@ async def upload_published_video(
     finally:
         if temp_path and os.path.exists(temp_path):
             os.unlink(temp_path)
+
+@router.put("/published/{video_id}/status", response_model=dict)
+async def update_published_video_status(
+    video_id: int, 
+    status_update: VideoStatusUpdate,
+    current_user: dict = Depends(require_admin())
+):
+    """更新待发布视频状态"""
+    try:
+        with Session(engine) as session:
+            video = session.get(Video, video_id)
+            if not video:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="视频不存在"
+                )
+            
+            # 更新状态
+            video.is_enabled = status_update.is_enabled
+            session.add(video)
+            session.commit()
+            session.refresh(video)
+            
+            return {"success": True, "message": "状态更新成功"}
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"更新视频状态失败: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"更新视频状态失败: {str(e)}"
+        )
