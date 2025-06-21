@@ -119,3 +119,6 @@ class Video(BaseModel, table=True):
     cover_height: int = Field(description="封面高度")
     platform: str = Field(description="平台", sa_type=sa.String(length=32))
     owner_id: str = Field(index=True, description="所有者ID")
+    is_enabled: bool = Field(default=True, description="是否可用")
+    publish_cnt: int = Field(default=0, description="发布次数")
+    

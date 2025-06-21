@@ -1,0 +1,576 @@
+{% extends "admin/base.html" %}
+
+{% block title %}待发布视频 - ShopSphere{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow overflow-hidden sm:rounded-lg">
+    <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+        <h3 class="text-lg leading-6 font-medium text-gray-900">待发布视频</h3>
+        <button onclick="openUploadModal()"
+            class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">上传待发布视频</button>
+    </div>
+    <div class="border-t border-gray-200">
+        <div class="bg-white">
+            <div class="max-w-7xl mx-auto">
+                <div class="flex flex-col">
+                    <div class="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                        <div class="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                            <div class="overflow-hidden border-b border-gray-200">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <colgroup>
+                                        <col span="1">
+                                        <col span="1" style="width:200px">
+                                    </colgroup>
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                ID</th>
+                                            <th class="py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                                style="width:200px">视频</th>
+                                            <th
+                                                class="py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                关联商品</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                尺寸</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                                时长(s)</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                可用</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                                发布次数</th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                创建时间 (UTC+8)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        {% for v in videos %}
+                                        <tr class="h-40">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ v.id }}
+                                            </td>
+                                            <td class="py-4 text-sm" style="width:200px">
+                                                <div class="flex justify-center">
+                                                    {% set ratio = v.width / v.height if v.height else 1 %}
+                                                    {% set h = 200 / ratio %}
+                                                    {% set display_h = h if h <= 120 else 120 %} <div
+                                                        style="width:200px;height:{{ display_h }}px"
+                                                        class="relative group" data-video-id="{{ v.id }}"
+                                                        data-video-url="{{ v.url }}">
+                                                        <img src="{{ thumb_map[v.id] }}"
+                                                            class="rounded object-contain w-full h-full">
+                                                        <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-30 transition cursor-pointer"
+                                                            onclick="openPlayer('{{ v.id }}')">
+                                                            <div
+                                                                class="w-12 h-12 bg-black bg-opacity-50 rounded-full flex items-center justify-center transform scale-0 group-hover:scale-100 transition">
+                                                                <svg xmlns="http://www.w3.org/2000/svg"
+                                                                    class="h-8 w-8 text-white" fill="none"
+                                                                    viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                                        stroke-width="2"
+                                                                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                                        stroke-width="2"
+                                                                        d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                </svg>
+                                                            </div>
+                                                        </div>
+                                                </div>
+                            </div>
+                            </td>
+                            <td class="py-4 text-center align-middle">
+                                {% set prod = product_map.get(v.item_id) %}
+                                {% if prod %}
+                                <div class="inline-flex items-start">
+                                    {% set thumb = (prod.images[0].link if prod.images and prod.images[0].get('link')
+                                    else None) %}
+                                    <div class="flex-shrink-0 h-16 w-16"><img class="h-16 w-16 rounded-md object-cover"
+                                            src="{{ (thumb ~ '?imageView2/2/w/160/format/webp/q/75') if thumb else '/static/images/placeholder.png' }}"
+                                            alt="{{ prod.item_name }}"></div>
+                                    <div class="ml-3 text-left">
+                                        <div class="text-sm font-medium text-gray-900 line-clamp-2 max-w-xs">{{
+                                            prod.item_name }}</div>
+                                        <div class="flex items-center text-xs text-gray-500 space-x-1 mt-1">
+                                            <span>ID:</span><span>{{ prod.item_id }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% else %}<span class="text-xs text-gray-400">无</span>{% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ v.width }}×{{ v.height }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ (v.duration // 1000) }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span
+                                    class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {% if v.is_enabled %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">{{
+                                    '启用' if v.is_enabled else '禁用' }}</span></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ v.publish_cnt }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{
+                                v.create_time|datetimeformat }}</td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                            </table>
+                        </div>
+                        <!-- 分页 -->
+                        <div class="mt-4 flex justify-center space-x-4">
+                            {% if has_prev %}<a href="?page={{ page-1 }}"
+                                class="w-20 text-center px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 text-sm">上一页</a>{%
+                            else %}<span
+                                class="w-20 text-center px-3 py-1 rounded bg-gray-50 text-gray-400 text-sm">上一页</span>{%
+                            endif %}
+                            <span class="px-3 py-1 text-sm text-gray-600">第 {{ page }} / {{ total_pages }} 页</span>
+                            {% if has_next %}<a href="?page={{ page+1 }}"
+                                class="w-20 text-center px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 text-sm">下一页</a>{%
+                            else %}<span
+                                class="w-20 text-center px-3 py-1 rounded bg-gray-50 text-gray-400 text-sm">下一页</span>{%
+                            endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 上传待发布视频模态框 -->
+<dialog id="uploadModal" class="w-full h-full bg-transparent p-0 m-0">
+    <div class="fixed inset-0 bg-black bg-opacity-50"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="relative bg-white rounded-lg shadow-xl w-full max-w-5xl">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">上传待发布视频</h3>
+                    <button onclick="closeUploadModal()" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <form id="uploadForm" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">选择视频文件</label>
+                                <input type="file" id="videoFile" accept="video/*" class="mt-1 block w-full" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">关联商品</label>
+                                <div class="relative mt-1">
+                                    <div id="selectedProduct" class="hidden w-full">
+                                        <div class="flex shadow-sm ring-1 ring-gray-300 rounded-md bg-white w-full cursor-pointer"
+                                            style="max-width: 42rem;" onclick="toggleDropdown()">
+                                            <div class="flex-1 p-2 min-w-0">
+                                                <div class="flex items-center h-10">
+                                                    <div class="flex-shrink-0 h-10 w-10">
+                                                        <img id="selectedProductImage"
+                                                            class="h-10 w-10 rounded-md object-cover ring-1 ring-gray-200"
+                                                            src="/static/images/placeholder.png" alt="">
+                                                    </div>
+                                                    <div class="ml-3 flex-1 min-w-0" style="max-width: 24rem;">
+                                                        <div id="selectedProductName"
+                                                            class="text-sm font-medium text-gray-900 truncate"></div>
+                                                        <div
+                                                            class="flex items-center text-xs text-gray-500 space-x-1 min-w-0">
+                                                            <span class="flex-shrink-0">ID: </span>
+                                                            <span id="selectedProductId" class="truncate"></span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div
+                                                class="flex-shrink-0 px-3 border-l border-gray-300 bg-gray-50 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-0 flex items-center">
+                                                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg"
+                                                    viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd"
+                                                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                                        clip-rule="evenodd" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="searchInput" class="w-full" style="max-width: 42rem;">
+                                        <div class="flex shadow-sm ring-1 ring-gray-300 rounded-md focus-within:ring-2 focus-within:ring-blue-500 cursor-pointer"
+                                            onclick="toggleDropdown()">
+                                            <div class="flex-1 p-2 min-w-0">
+                                                <div class="flex items-center h-10">
+                                                    <div
+                                                        class="flex-shrink-0 h-10 w-10 flex items-center justify-center">
+                                                        <svg class="h-6 w-6 text-gray-400"
+                                                            xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                            viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                stroke-width="2"
+                                                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                        </svg>
+                                                    </div>
+                                                    <div class="ml-3 flex-1 min-w-0">
+                                                        <input type="text" id="itemIdSearch" placeholder="搜索或选择商品..."
+                                                            class="block w-full border-0 p-0 text-sm text-gray-900 placeholder-gray-500 focus:ring-0 focus:outline-none cursor-pointer"
+                                                            autocomplete="off" onclick="event.stopPropagation()"
+                                                            onfocus="showDropdown()">
+                                                        <div class="text-xs text-gray-400">点击选择或输入关键词搜索</div>
+                                                    </div>
+                                                    <div class="flex-shrink-0 ml-2 flex items-center">
+                                                        <svg class="h-5 w-5 text-gray-400"
+                                                            xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                                                            fill="currentColor">
+                                                            <path fill-rule="evenodd"
+                                                                d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                                                                clip-rule="evenodd" />
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <input type="hidden" id="itemId" required>
+                                    <div id="productSearchResults"
+                                        class="hidden absolute z-10 mt-2 w-full bg-white rounded-md shadow-lg max-h-60 overflow-auto focus:outline-none ring-1 ring-black ring-opacity-5"
+                                        style="max-width: 42rem;">
+                                        <!-- 搜索结果将在这里动态显示 -->
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">描述</label>
+                                <textarea id="description" rows="3"
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 resize-none ring-1 ring-gray-300"></textarea>
+                            </div>
+                            <div class="mt-6 flex justify-end space-x-3">
+                                <button type="button" onclick="closeUploadModal()"
+                                    class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">取消</button>
+                                <button type="submit"
+                                    class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm font-medium hover:bg-blue-600">上传</button>
+                            </div>
+                        </form>
+                        <div id="uploadProgress" class="hidden mt-4">
+                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                <div class="bg-blue-500 h-2.5 rounded-full" style="width: 0%"></div>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-2 text-center">正在上传...</p>
+                        </div>
+                    </div>
+                    <div class="border-l pl-6">
+                        <div class="space-y-4">
+                            <div>
+                                <h4 class="text-sm font-medium text-gray-900 mb-2">视频预览</h4>
+                                <div id="videoPreview"
+                                    class="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
+                                    <span class="text-gray-400">选择视频后在此处预览</span>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-medium text-gray-900 mb-2">视频信息</h4>
+                                <div id="videoInfo" class="text-sm text-gray-500 space-y-2">
+                                    <p>文件名：<span id="fileName">-</span></p>
+                                    <p>大小：<span id="fileSize">-</span></p>
+                                    <p>时长：<span id="duration">-</span></p>
+                                    <p>分辨率：<span id="resolution">-</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</dialog>
+
+<!-- Toast提示组件 -->
+<div id="toast" class="fixed top-4 right-4 z-50 transform transition-all duration-300 translate-x-full opacity-0">
+    <div class="flex items-center px-4 py-2 rounded-lg shadow-lg">
+        <div class="text-sm font-medium"></div>
+    </div>
+</div>
+
+<!-- 视频播放器模态框 -->
+<dialog id="playerModal" class="w-full h-full bg-transparent p-0 m-0">
+    <div class="fixed inset-0 bg-black bg-opacity-50"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="relative bg-white rounded-lg shadow-xl w-full max-w-4xl">
+            <div class="p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">视频预览</h3>
+                    <button onclick="closePlayer()" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div id="playerContainer" class="aspect-video bg-black rounded-lg">
+                    <video id="player" class="w-full h-full" controls>
+                        您的浏览器不支持 HTML5 视频播放
+                    </video>
+                </div>
+            </div>
+        </div>
+    </div>
+</dialog>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+    // 添加样式
+    const style = document.createElement('style');
+    style.textContent = `
+        dialog::backdrop {
+            display: none;
+        }
+        dialog {
+            background: transparent;
+            border: none;
+            width: 100vw;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+        }
+        dialog:focus {
+            outline: none;
+        }
+    `;
+    document.head.appendChild(style);
+
+    // 将商品列表存储在全局变量中
+    window.productsList = [];
+
+    // 加载商品列表
+    async function loadProducts() {
+        try {
+            const response = await fetch('/admin/products/list');
+            const products = await response.json();
+            window.productsList = products;
+            console.log('商品列表加载成功:', products.length, '个商品');
+        } catch (error) {
+            console.error('加载商品列表失败:', error);
+            showToast('加载商品列表失败', 'error');
+        }
+    }
+
+    // 上传模态框逻辑
+    function openUploadModal() { document.getElementById('uploadModal').showModal(); }
+    function closeUploadModal() {
+        const modal = document.getElementById('uploadModal');
+        const video = document.getElementById('previewVideo');
+        if (video) {
+            video.pause();
+            video.currentTime = 0;
+            URL.revokeObjectURL(video.src);
+        }
+        modal.close();
+        document.getElementById('uploadForm').reset();
+        document.getElementById('uploadProgress').classList.add('hidden');
+        clearSelectedProduct();
+        document.getElementById('videoPreview').innerHTML = '<span class="text-gray-400">选择视频后在此处预览</span>';
+        document.getElementById('fileName').textContent = '-';
+        document.getElementById('fileSize').textContent = '-';
+        document.getElementById('duration').textContent = '-';
+        document.getElementById('resolution').textContent = '-';
+    }
+
+    document.getElementById('uploadForm').addEventListener('submit', async function (e) { e.preventDefault(); const videoFile = document.getElementById('videoFile').files[0]; const itemId = document.getElementById('itemId').value; const description = document.getElementById('description').value; if (!videoFile || !itemId) { showToast('请选择视频文件并填写商品ID', 'error'); return; } const formData = new FormData(); formData.append('video_file', videoFile); formData.append('item_id', itemId); formData.append('description', description); formData.append('platform', 'web'); const progressBar = document.querySelector('#uploadProgress div'); const progressText = document.querySelector('#uploadProgress p'); const progressContainer = document.getElementById('uploadProgress'); progressContainer.classList.remove('hidden'); try { const resp = await axios.post('/admin/videos/publish/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' }, onUploadProgress: (evt) => { const pct = Math.round((evt.loaded * 100) / evt.total); progressBar.style.width = pct + '%'; progressText.textContent = `上传中... ${pct}%`; } }); if (resp.data.success) { progressBar.style.width = '100%'; progressText.textContent = '上传成功！'; showToast('上传成功', 'success'); setTimeout(() => { closeUploadModal(); window.location.reload(); }, 1500); } else { showToast(resp.data.message || '上传失败', 'error'); } } catch (err) { console.error(err); showToast('上传失败', 'error'); } finally { setTimeout(() => { progressContainer.classList.add('hidden'); progressBar.style.width = '0%'; progressText.textContent = '正在上传...'; }, 2000); } });
+
+    document.getElementById('videoFile').addEventListener('change', function (e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        document.getElementById('fileName').textContent = file.name;
+        document.getElementById('fileSize').textContent = formatFileSize(file.size);
+
+        const videoPreview = document.getElementById('videoPreview');
+        videoPreview.innerHTML = '';
+        const video = document.createElement('video');
+        video.id = 'previewVideo';
+        video.src = URL.createObjectURL(file);
+        video.className = 'w-full h-full rounded-lg';
+        video.controls = true;
+        videoPreview.appendChild(video);
+
+        video.onloadedmetadata = function () {
+            document.getElementById('duration').textContent = formatDuration(video.duration);
+            document.getElementById('resolution').textContent = `${video.videoWidth}×${video.videoHeight}`;
+        };
+    });
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function formatDuration(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        seconds = Math.floor(seconds % 60);
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    // 显示商品列表的函数
+    function showProductList(searchTerm = '') {
+        const searchResults = document.getElementById('productSearchResults');
+        const filteredProducts = window.productsList.filter(product =>
+            product.item_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            product.item_id.toString().includes(searchTerm)
+        );
+
+        searchResults.innerHTML = filteredProducts.map(product => `
+            <div class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-100"
+                onclick="selectProduct('${product.item_id}', '${product.item_name.replace(/'/g, "\\'")}', '${product.image_url || '/static/images/placeholder.png'}')">
+                <div class="flex items-center">
+                    <img src="${product.image_url || '/static/images/placeholder.png'}" 
+                         class="h-10 w-10 flex-shrink-0 rounded object-cover">
+                    <div class="ml-3 flex-1 truncate">
+                        <div class="text-sm font-medium text-gray-900 truncate">${product.item_name}</div>
+                        <div class="text-sm text-gray-500">ID: ${product.item_id}</div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        searchResults.classList.remove('hidden');
+    }
+
+    function selectProduct(id, title, imageUrl) {
+        document.getElementById('itemId').value = id;
+        document.getElementById('selectedProductImage').src = imageUrl;
+        document.getElementById('selectedProductName').textContent = title;
+        document.getElementById('selectedProductId').textContent = id;
+        document.getElementById('selectedProduct').classList.remove('hidden');
+        document.getElementById('searchInput').classList.add('hidden');
+        document.getElementById('productSearchResults').classList.add('hidden');
+    }
+
+    function showDropdown() {
+        showProductList(document.getElementById('itemIdSearch').value);
+    }
+
+    // 搜索框输入事件
+    document.getElementById('itemIdSearch').addEventListener('input', function (e) {
+        showProductList(e.target.value);
+    });
+
+    function clearSelectedProduct() {
+        document.getElementById('selectedProduct').classList.add('hidden');
+        document.getElementById('searchInput').classList.remove('hidden');
+        document.getElementById('itemId').value = '';
+        document.getElementById('itemIdSearch').value = '';
+    }
+
+    function toggleDropdown() {
+        const searchResults = document.getElementById('productSearchResults');
+        if (searchResults.classList.contains('hidden')) {
+            showProductList();
+        } else {
+            searchResults.classList.add('hidden');
+        }
+    }
+
+    // 点击页面其他地方关闭下拉列表
+    document.addEventListener('click', (e) => {
+        const searchResults = document.getElementById('productSearchResults');
+        const searchInput = document.getElementById('searchInput');
+        const selectedProduct = document.getElementById('selectedProduct');
+
+        if (!searchInput.contains(e.target) &&
+            !selectedProduct.contains(e.target) &&
+            !searchResults.contains(e.target)) {
+            searchResults.classList.add('hidden');
+        }
+    });
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', () => {
+        loadProducts();
+    });
+
+    // 视频播放相关函数
+    function openPlayer(videoId) {
+        const modal = document.getElementById('playerModal');
+        const player = document.getElementById('player');
+        const video = document.querySelector(`[data-video-id="${videoId}"]`);
+
+        if (video) {
+            const videoKey = video.getAttribute('data-video-url');
+            // 获取签名URL
+            fetch(`/admin/videos/${videoId}/play`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.url) {
+                        player.src = data.url;
+                        modal.showModal();
+
+                        // 自动播放
+                        player.play().catch(function (error) {
+                            console.log("视频自动播放失败:", error);
+                        });
+                    } else {
+                        showToast('获取视频播放地址失败', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('获取视频播放地址失败:', error);
+                    showToast('获取视频播放地址失败', 'error');
+                });
+        }
+    }
+
+    function closePlayer() {
+        const modal = document.getElementById('playerModal');
+        const player = document.getElementById('player');
+
+        // 停止播放
+        player.pause();
+        player.currentTime = 0;
+        player.src = '';
+
+        modal.close();
+    }
+
+    // 当点击模态框背景时关闭
+    document.getElementById('playerModal').addEventListener('click', function (e) {
+        if (e.target === this) {
+            closePlayer();
+        }
+    });
+
+    // 添加ESC键关闭支持
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            closePlayer();
+        }
+    });
+
+    // 显示Toast提示
+    function showToast(message, type = 'success') {
+        const toast = document.getElementById('toast');
+        const toastContent = toast.querySelector('.flex');
+        const toastMessage = toast.querySelector('.text-sm');
+
+        // 设置样式
+        if (type === 'success') {
+            toastContent.className = 'flex items-center px-4 py-2 rounded-lg shadow-lg bg-green-50';
+            toastMessage.className = 'text-sm font-medium text-green-800';
+        } else if (type === 'error') {
+            toastContent.className = 'flex items-center px-4 py-2 rounded-lg shadow-lg bg-red-50';
+            toastMessage.className = 'text-sm font-medium text-red-800';
+        }
+
+        toastMessage.textContent = message;
+        toast.classList.remove('translate-x-full', 'opacity-0');
+
+        // 3秒后隐藏
+        setTimeout(() => {
+            toast.classList.add('translate-x-full', 'opacity-0');
+        }, 3000);
+    }
+</script>
+{% endblock %}

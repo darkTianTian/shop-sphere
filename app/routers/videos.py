@@ -14,7 +14,7 @@ from app.services.video_service import VideoService
 from app.services.oss_service import OSSService
 from app.auth.decorators import require_admin
 from app.internal.db import engine
-from app.models.video import VideoMaterial, VideoStatus
+from app.models.video import VideoMaterial, VideoStatus, Video
 from app.routers.admin import templates as shared_templates
 from app.models.product import Product
 
@@ -402,3 +402,140 @@ async def update_video_status(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"更新视频状态失败: {str(e)}"
         )
+
+@router.get("/published", response_class=HTMLResponse)
+async def list_published_videos(request: Request, page: int = 1, current_user: dict = Depends(require_admin())):
+    """已发布视频列表页面"""
+    page = max(page, 1)
+    with Session(engine) as session:
+        total = session.exec(select(func.count(Video.id))).one()
+        total_pages = max(math.ceil(total/PAGE_SIZE), 1)
+        offset_val = (page - 1) * PAGE_SIZE
+        videos = session.exec(
+            select(Video).order_by(Video.create_at.desc()).offset(offset_val).limit(PAGE_SIZE)
+        ).all()
+
+        # 取商品信息
+        item_ids = [v.item_id for v in videos if v.item_id]
+        product_map = {}
+        if item_ids:
+            products = session.exec(select(Product).where(Product.item_id.in_(item_ids))).all()
+            product_map = {p.item_id: p for p in products}
+
+        # 缩略图
+        thumb_map = {}
+        if oss_service.is_available():
+            for v in videos:
+                if getattr(v, "cover_url", None):
+                    thumb_map[v.id] = v.cover_url
+                else:
+                    style = "video/snapshot,t_1000,f_jpg,w_320,m_fast"
+                    thumb_map[v.id] = oss_service.bucket.sign_url("GET", v.file_id, 3600, params={"x-oss-process": style})
+
+        return templates.TemplateResponse(
+            "admin/published_videos.html",
+            {
+                "request": request,
+                "user": current_user,
+                "videos": videos,
+                "product_map": product_map,
+                "thumb_map": thumb_map,
+                "page": page,
+                "total_pages": total_pages,
+                "has_prev": page > 1,
+                "has_next": page < total_pages,
+            },
+        )
+
+@router.post("/publish/upload", response_model=dict)
+async def upload_published_video(
+    video_file: UploadFile = File(..., description="视频文件"),
+    item_id: str = Form(..., description="商品ID"),
+    description: str = Form(None, description="描述"),
+    platform: str = Form("web", description="平台"),
+    current_user: dict = Depends(require_admin())
+):
+    """上传视频并存到 Video 表（待发布）"""
+    if not video_file.content_type or not video_file.content_type.startswith("video/"):
+        raise HTTPException(400, "请上传视频文件")
+
+    temp_path = None
+    try:
+        # 保存到临时文件
+        suffix = os.path.splitext(video_file.filename)[1]
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            temp_path = tmp.name
+            content = await video_file.read()
+            tmp.write(content)
+            tmp.flush()
+        file_size = len(content)
+
+        # 上传到 OSS
+        file_url = f"/uploads/videos/{video_file.filename}"
+        oss_key = ""
+        if oss_service.is_available():
+            ok, key, public = oss_service.upload_temp_file(temp_path, video_file.filename, video_file.content_type)
+            if not ok:
+                raise HTTPException(500, f"上传失败: {key}")
+            oss_key = key
+            file_url = public
+
+        # 提取元数据
+        meta = video_service.extract_video_metadata(temp_path)
+        v_info = meta.get("video", {})
+        duration_ms = int(float(meta["format"].get("duration", 0)) * 1000)
+        width = int(v_info.get("width", 0))
+        height = int(v_info.get("height", 0))
+        bitrate = int(v_info.get("bit_rate", 0))
+        frame_rate_str = v_info.get("r_frame_rate", "0/1")
+        if "/" in frame_rate_str:
+            num, den = frame_rate_str.split("/")
+            frame_rate = int(float(num)/float(den)) if float(den)!=0 else 0
+        else:
+            frame_rate = int(float(frame_rate_str))
+
+        file_id = os.path.basename(file_url)
+
+        with Session(engine) as session:
+            video_row = Video(
+                file_id=file_id,
+                video_material_id="",
+                url=file_url,
+                item_id=item_id,
+                sku_id=item_id,
+                width=width,
+                height=height,
+                duration=duration_ms,
+                format=v_info.get("codec_name", "unknown"),
+                bitrate=bitrate,
+                frame_rate=frame_rate,
+                colour_primaries=v_info.get("color_primaries", ""),
+                matrix_coefficients=v_info.get("color_space", ""),
+                transfer_characteristics=v_info.get("color_transfer", ""),
+                rotation=int(v_info.get("tags", {}).get("rotate", 0)) if v_info.get("tags") else 0,
+                audio_bitrate=0,
+                audio_channels=0,
+                audio_duration=duration_ms,
+                audio_format="",
+                audio_sampling_rate=0,
+                cover_file_id="",
+                cover_url="",
+                cover_width=width,
+                cover_height=height,
+                platform=platform,
+                owner_id=current_user.get("id", ""),
+                is_enabled=True,
+                publish_cnt=0
+            )
+            session.add(video_row)
+            session.commit()
+            session.refresh(video_row)
+        return {"success": True, "message": "上传成功"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"upload publish video error: {e}")
+        raise HTTPException(500, str(e))
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.unlink(temp_path)

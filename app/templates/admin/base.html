@@ -45,8 +45,12 @@
                             文章管理
                         </a>
                         <a href="/admin/videos"
-                            class="{% if request.path.startswith('/admin/videos') %}border-primary text-gray-900{% else %}border-transparent text-gray-500{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            视频管理
+                            class="{% if request.path == '/admin/videos' %}border-primary text-gray-900{% else %}border-transparent text-gray-500{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            视频素材管理
+                        </a>
+                        <a href="/admin/videos/published"
+                            class="{% if request.path.startswith('/admin/videos/published') %}border-primary text-gray-900{% else %}border-transparent text-gray-500{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            待发布视频
                         </a>
                         <a href="/admin/settings"
                             class="{% if request.path.startswith('/admin/settings') %}border-primary text-gray-900{% else %}border-transparent text-gray-500{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">

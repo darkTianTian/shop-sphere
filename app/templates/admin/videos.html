@@ -1,14 +1,14 @@
 {% extends "admin/base.html" %}
 
-{% block title %}视频管理 - ShopSphere{% endblock %}
+{% block title %}视频素材管理 - ShopSphere{% endblock %}
 
 {% block content %}
 <div class="bg-white shadow overflow-hidden sm:rounded-lg">
     <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
-        <h3 class="text-lg leading-6 font-medium text-gray-900">视频管理</h3>
+        <h3 class="text-lg leading-6 font-medium text-gray-900">视频素材管理</h3>
         <button onclick="openUploadModal()"
             class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
-            上传视频
+            上传视频素材
         </button>
     </div>
     <div class="border-t border-gray-200">
@@ -51,7 +51,8 @@
                                                 UUID</th>
                                             <th
                                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                创建时间</th>
+                                                创建时间 (UTC+8)
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white divide-y divide-gray-200">
@@ -67,7 +68,8 @@
                                                     %}
                                                     {% set display_height = calc_height if calc_height <= 120 else 120
                                                         %} <div style="width:200px; height:{{ display_height }}px;"
-                                                        class="relative group">
+                                                        class="relative group" data-video-id="{{ v.id }}"
+                                                        data-video-url="{{ v.oss_object_key }}">
                                                         <img src="{{ thumb_map[v.id] }}"
                                                             style="width:100%; height:100%; object-fit:contain"
                                                             class="rounded transition">
@@ -197,10 +199,11 @@
 </div>
 
 <!-- 上传视频模态框 -->
-<dialog id="uploadModal" class="w-full max-w-5xl bg-white rounded-lg shadow-xl p-0">
+<dialog id="uploadModal"
+    class="w-full max-w-5xl bg-white rounded-lg shadow-xl p-0 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 m-0">
     <div class="p-6">
         <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-medium text-gray-900">上传视频</h3>
+            <h3 class="text-lg font-medium text-gray-900">上传视频素材</h3>
             <button onclick="closeUploadModal()" class="text-gray-400 hover:text-gray-500">
                 <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -246,15 +249,6 @@
                                             </button>
                                         </div>
                                     </div>
-                                    <div
-                                        class="flex-shrink-0 px-3 border-l border-gray-300 bg-gray-50 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-0 flex items-center">
-                                        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
-                                            fill="currentColor">
-                                            <path fill-rule="evenodd"
-                                                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                                clip-rule="evenodd" />
-                                        </svg>
-                                    </div>
                                 </div>
                             </div>
                             <div id="searchInput" class="w-full" style="max-width: 42rem;">
@@ -287,15 +281,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div
-                                        class="flex-shrink-0 px-3 border-l border-gray-300 bg-gray-50 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-0 flex items-center">
-                                        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
-                                            fill="currentColor">
-                                            <path fill-rule="evenodd"
-                                                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                                clip-rule="evenodd" />
-                                        </svg>
-                                    </div>
                                 </div>
                             </div>
                             <input type="hidden" id="itemId" required>
@@ -313,13 +298,9 @@
                     </div>
                     <div class="mt-6 flex justify-end space-x-3">
                         <button type="button" onclick="closeUploadModal()"
-                            class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
-                            取消
-                        </button>
+                            class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">取消</button>
                         <button type="submit"
-                            class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm font-medium hover:bg-blue-600">
-                            上传
-                        </button>
+                            class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm font-medium hover:bg-blue-600">上传</button>
                     </div>
                 </form>
                 <div id="uploadProgress" class="hidden mt-4">
@@ -353,109 +334,59 @@
     </div>
 </dialog>
 
+<!-- 视频播放器模态框 -->
+<dialog id="playerModal"
+    class="w-full max-w-4xl bg-white rounded-lg shadow-xl p-0 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 m-0">
+    <div class="p-4">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-medium text-gray-900">视频预览</h3>
+            <button onclick="closePlayer()" class="text-gray-400 hover:text-gray-500">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <div id="playerContainer" class="aspect-video bg-black rounded-lg">
+            <video id="player" class="w-full h-full" controls>
+                您的浏览器不支持 HTML5 视频播放
+            </video>
+        </div>
+    </div>
+</dialog>
+
 <!-- Toast提示组件 -->
 <div id="toast" class="fixed top-4 right-4 z-50 transform transition-all duration-300 translate-x-full opacity-0">
-    <div class="flex items-center px-4 py-2 rounded-lg shadow-lg">
+    <div class="flex items-center px-4 py-3 rounded-lg shadow-lg">
+        <div class="flex-shrink-0 mr-2">
+            <svg id="toast-success-icon" class="h-5 w-5 text-green-400 hidden" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clip-rule="evenodd" />
+            </svg>
+            <svg id="toast-error-icon" class="h-5 w-5 text-red-400 hidden" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clip-rule="evenodd" />
+            </svg>
+        </div>
         <div class="text-sm font-medium"></div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
-<dialog id="playerModal" class="w-full h-full bg-transparent p-0 m-0">
-    <div class="fixed inset-0 bg-black bg-opacity-60"></div>
-    <div class="fixed inset-0 flex items-center justify-center p-4">
-        <div class="relative bg-black rounded-lg shadow-lg w-full max-w-3xl">
-            <div class="absolute top-0 right-0 p-2 z-10">
-                <button type="button"
-                    class="bg-black bg-opacity-50 rounded-full p-2 text-white hover:bg-opacity-70 transition-all"
-                    onclick="closePlayer()">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
-            <div class="aspect-video">
-                <video id="videoPlayer" class="w-full h-full object-contain" controls></video>
-            </div>
-        </div>
-    </div>
-</dialog>
-
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-
 <script>
-    function copyToClipboard(text, evt) {
-        const btn = evt && evt.currentTarget;
-        const flash = () => {
-            if (!btn) return;
-            btn.classList.add('ring-2', 'ring-green-400');
-            const icon = btn.querySelector('.copy-icon');
-            const tick = btn.querySelector('.copy-tick');
-            if (icon && tick) {
-                icon.classList.add('invisible');
-                tick.classList.remove('opacity-0');
-                setTimeout(() => {
-                    btn.classList.remove('ring-2', 'ring-green-400');
-                    icon.classList.remove('invisible');
-                    tick.classList.add('opacity-0');
-                }, 800);
-            }
-        };
-
-        if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(text).then(flash).catch(fallback);
-        } else { fallback(); }
-
-        function fallback() {
-            try {
-                const ta = document.createElement('textarea');
-                ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); flash();
-            } catch (e) { console.error(e); alert('复制失败'); }
-        }
-    }
-
-    async function openPlayer(id) {
-        try {
-            const r = await fetch(`/admin/videos/${id}/play`);
-            const data = await r.json();
-            const modal = document.getElementById('playerModal');
-            const player = document.getElementById('videoPlayer');
-
-            player.src = data.url;
-            modal.showModal();
-            player.play();
-
-            modal.addEventListener('close', () => {
-                player.pause();
-                player.src = '';
-            }, { once: true });
-
-        } catch (e) {
-            alert('无法播放视频');
-        }
-    }
-
-    function closePlayer() {
-        const modal = document.getElementById('playerModal');
-        modal.close();
-    }
-
     // 添加样式
     const style = document.createElement('style');
     style.textContent = `
         dialog::backdrop {
-            background: transparent;
+            background: rgba(0, 0, 0, 0.5);
         }
         dialog {
-            background: transparent;
             border: none;
-            width: 100vw;
-            height: 100vh;
             padding: 0;
-            margin: 0;
+            background: white;
         }
         dialog:focus {
             outline: none;
@@ -470,176 +401,121 @@
     async function loadProducts() {
         try {
             const response = await fetch('/admin/products/list');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             const products = await response.json();
-
-            // 存储商品数据
+            if (!Array.isArray(products)) {
+                throw new Error('商品列表格式不正确');
+            }
             window.productsList = products;
-
-            // 初始化时不需要显示下拉列表
             console.log('商品列表加载成功:', products.length, '个商品');
         } catch (error) {
             console.error('加载商品列表失败:', error);
+            window.productsList = [];
             showToast('加载商品列表失败', 'error');
         }
     }
 
     // 显示商品列表的函数
-    function displayProducts(productList) {
+    function showProductList(searchTerm = '') {
         const searchResults = document.getElementById('productSearchResults');
-        searchResults.innerHTML = '';
+        if (!searchResults) return;  // 添加检查
 
-        // 添加标题
-        const header = document.createElement('div');
-        header.className = 'sticky top-0 px-3 py-2 text-xs font-medium text-gray-500 bg-gray-50 border-b border-gray-200';
-        header.textContent = '商品列表';
-        searchResults.appendChild(header);
-
-        if (!productList || productList.length === 0) {
-            const emptyState = document.createElement('div');
-            emptyState.className = 'px-3 py-6 text-center text-sm text-gray-500 border-t border-gray-100';
-            emptyState.innerHTML = `
-                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                </svg>
-                <p class="mt-1">未找到相关商品</p>
-            `;
-            searchResults.appendChild(emptyState);
+        if (!window.productsList || !Array.isArray(window.productsList)) {
+            console.error('商品列表不可用');
             return;
         }
 
-        productList.forEach(product => {
-            const div = document.createElement('div');
-            div.className = 'relative cursor-pointer select-none hover:bg-gray-50 transition-colors duration-100 border-b border-gray-100 last:border-b-0';
+        const searchTermLower = (searchTerm || '').toLowerCase();
+        const filteredProducts = window.productsList.filter(product => {
+            if (!product) return false;
+            const itemName = (product.item_name || '').toLowerCase();
+            const itemId = (product.item_id || '').toString().toLowerCase();
+            return itemName.includes(searchTermLower) || itemId.includes(searchTermLower);
+        });
 
-            const innerDiv = document.createElement('div');
-            innerDiv.className = 'px-3 py-2';
-
-            innerDiv.innerHTML = `
-                <div class="flex items-center">
-                    <div class="flex-shrink-0 h-10 w-10">
-                        <img class="h-10 w-10 rounded-md object-cover ring-1 ring-gray-200"
-                            src="${product.image_url || '/static/images/placeholder.png'}"
-                            alt="${product.item_name}">
-                    </div>
-                    <div class="ml-3 flex-1 min-w-0" style="max-width: 24rem;">
-                        <div class="text-sm font-medium text-gray-900 truncate">${product.item_name}</div>
-                        <div class="flex items-center text-xs text-gray-500 space-x-1 min-w-0">
-                            <span class="flex-shrink-0">ID: </span>
-                            <span class="truncate">${product.item_id}</span>
+        const productElements = filteredProducts.map(product => {
+            const imageUrl = product.image_url || '/static/images/placeholder.png';
+            return `
+                <div class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-100"
+                    onclick="selectProduct('${product.item_id}', '${(product.item_name || '').replace(/'/g, "\\'")}', '${imageUrl}')">
+                    <div class="flex items-center">
+                        <img src="${imageUrl}" 
+                             class="h-10 w-10 flex-shrink-0 rounded object-cover">
+                        <div class="ml-3 flex-1 truncate">
+                            <div class="text-sm font-medium text-gray-900 truncate">${product.item_name || ''}</div>
+                            <div class="text-sm text-gray-500">ID: ${product.item_id || ''}</div>
                         </div>
-                    </div>
-                    <div class="flex-shrink-0 ml-2">
-                        <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                        </svg>
                     </div>
                 </div>
             `;
-
-            div.appendChild(innerDiv);
-
-            div.addEventListener('click', () => {
-                selectProduct(product);
-            });
-
-            searchResults.appendChild(div);
         });
+
+        searchResults.innerHTML = productElements.join('');
+        searchResults.classList.remove('hidden');
     }
 
-    // 选择商品的函数
-    function selectProduct(product) {
+    function selectProduct(id, title, imageUrl) {
+        const selectedProduct = document.getElementById('selectedProduct');
+        const searchInput = document.getElementById('searchInput');
         const itemIdInput = document.getElementById('itemId');
-        itemIdInput.value = product.item_id;
-
-        // 更新选中商品的显示
-        document.getElementById('selectedProductImage').src = product.image_url || '/static/images/placeholder.png';
-        document.getElementById('selectedProductName').textContent = product.item_name;
-        document.getElementById('selectedProductId').textContent = product.item_id;
-
-        // 显示选中商品，隐藏搜索框
-        document.getElementById('selectedProduct').classList.remove('hidden');
-        document.getElementById('searchInput').classList.add('hidden');
-        document.getElementById('productSearchResults').classList.add('hidden');
-    }
-
-    // 清除选中商品
-    function clearSelectedProduct() {
-        document.getElementById('selectedProduct').classList.add('hidden');
-        document.getElementById('searchInput').classList.remove('hidden');
-        document.getElementById('itemId').value = '';
-        document.getElementById('itemIdSearch').value = '';
-    }
-
-    // 切换下拉列表显示状态
-    function toggleDropdown() {
         const searchResults = document.getElementById('productSearchResults');
-        if (searchResults.classList.contains('hidden')) {
-            showDropdown();
-        } else {
-            searchResults.classList.add('hidden');
-        }
+
+        if (!selectedProduct || !searchInput || !itemIdInput || !searchResults) return;  // 添加检查
+
+        itemIdInput.value = id;
+        document.getElementById('selectedProductImage').src = imageUrl;
+        document.getElementById('selectedProductName').textContent = title;
+        document.getElementById('selectedProductId').textContent = id;
+        selectedProduct.classList.remove('hidden');
+        searchInput.classList.add('hidden');
+        searchResults.classList.add('hidden');
     }
 
     // 显示下拉列表
     function showDropdown() {
         const searchResults = document.getElementById('productSearchResults');
-        if (window.productsList && window.productsList.length > 0) {
-            displayProducts(window.productsList.slice(0, 10));
-            searchResults.classList.remove('hidden');
+        if (!searchResults) return;
+
+        showProductList(document.getElementById('itemIdSearch')?.value || '');
+    }
+
+    // 切换下拉列表显示状态
+    function toggleDropdown() {
+        const searchResults = document.getElementById('productSearchResults');
+        if (!searchResults) return;
+
+        if (searchResults.classList.contains('hidden')) {
+            showProductList();
         } else {
-            // 如果商品列表为空，重新加载
-            loadProducts().then(() => {
-                if (window.productsList && window.productsList.length > 0) {
-                    displayProducts(window.productsList.slice(0, 10));
-                    searchResults.classList.remove('hidden');
-                }
-            });
+            searchResults.classList.add('hidden');
         }
     }
 
-    // 搜索商品
-    function searchProducts(query) {
-        if (!window.productsList) return;
+    // 搜索框输入事件
+    const itemIdSearch = document.getElementById('itemIdSearch');
+    if (itemIdSearch) {
+        itemIdSearch.addEventListener('input', function (e) {
+            showProductList(e.target.value);
+        });
 
-        const results = window.productsList.filter(product =>
-            product.item_name.toLowerCase().includes(query.toLowerCase()) ||
-            product.item_id.toLowerCase().includes(query.toLowerCase())
-        );
-
-        displayProducts(results);
-        document.getElementById('productSearchResults').classList.remove('hidden');
+        itemIdSearch.addEventListener('focus', function () {
+            showDropdown();
+        });
     }
 
-    // 添加搜索输入事件
-    let debounceTimer;
-    document.getElementById('itemIdSearch').addEventListener('input', (e) => {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-            const query = e.target.value.trim();
-            if (query) {
-                searchProducts(query);
-            } else {
-                showDropdown();
-            }
-        }, 300);
-    });
-
-    // 点击外部关闭下拉列表
+    // 点击页面其他地方关闭下拉列表
     document.addEventListener('click', (e) => {
         const searchResults = document.getElementById('productSearchResults');
         const searchInput = document.getElementById('searchInput');
         const selectedProduct = document.getElementById('selectedProduct');
 
-        if (!searchInput.contains(e.target) &&
-            !selectedProduct.contains(e.target) &&
-            !searchResults.contains(e.target)) {
-            searchResults.classList.add('hidden');
+        if (!searchInput?.contains(e.target) &&
+            !selectedProduct?.contains(e.target) &&
+            !searchResults?.contains(e.target)) {
+            searchResults?.classList.add('hidden');
         }
-    });
-
-    // 页面加载完成后初始化
-    document.addEventListener('DOMContentLoaded', () => {
-        loadProducts();
     });
 
     function openUploadModal() {
@@ -652,146 +528,42 @@
         const modal = document.getElementById('uploadModal');
         const video = document.getElementById('previewVideo');
         if (video) {
-            video.pause();  // 暂停视频播放
-            video.currentTime = 0;  // 重置播放位置
-            URL.revokeObjectURL(video.src);  // 释放视频URL
+            video.pause();
+            video.currentTime = 0;
+            URL.revokeObjectURL(video.src);
         }
         modal.close();
         document.getElementById('uploadForm').reset();
         document.getElementById('uploadProgress').classList.add('hidden');
-
-        // 清空预览区域
-        const videoPreview = document.getElementById('videoPreview');
-        videoPreview.innerHTML = '<span class="text-gray-400">选择视频后在此处预览</span>';
-
-        // 重置文件信息
+        clearSelectedProduct();
+        document.getElementById('videoPreview').innerHTML = '<span class="text-gray-400">选择视频后在此处预览</span>';
         document.getElementById('fileName').textContent = '-';
         document.getElementById('fileSize').textContent = '-';
         document.getElementById('duration').textContent = '-';
         document.getElementById('resolution').textContent = '-';
     }
 
-    // 添加模态框关闭事件监听
-    document.getElementById('uploadModal').addEventListener('close', function () {
-        const video = document.getElementById('previewVideo');
-        if (video) {
-            video.pause();
-            video.currentTime = 0;
-            URL.revokeObjectURL(video.src);
-        }
-    });
-
-    // Toast提示函数
-    function showToast(message, type = 'success', duration = 3000) {
-        const toast = document.getElementById('toast');
-        const messageEl = toast.querySelector('.text-sm');
-
-        // 设置样式
-        if (type === 'success') {
-            toast.querySelector('.flex').className = 'flex items-center px-4 py-2 rounded-lg shadow-lg bg-green-100 text-green-700';
-        } else {
-            toast.querySelector('.flex').className = 'flex items-center px-4 py-2 rounded-lg shadow-lg bg-red-100 text-red-700';
-        }
-
-        // 设置消息
-        messageEl.textContent = message;
-
-        // 显示Toast
-        toast.classList.remove('translate-x-full', 'opacity-0');
-
-        // duration后隐藏
-        setTimeout(() => {
-            toast.classList.add('translate-x-full', 'opacity-0');
-        }, duration);
-    }
-
-    document.getElementById('uploadForm').addEventListener('submit', async function (e) {
-        e.preventDefault();
-
-        const videoFile = document.getElementById('videoFile').files[0];
-        const itemId = document.getElementById('itemId').value;
-        const description = document.getElementById('description').value;
-
-        if (!videoFile || !itemId) {
-            showToast('请选择视频文件和关联商品', 'error');
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('video_file', videoFile);
-        formData.append('item_id', itemId);
-        formData.append('description', description);
-        formData.append('platform', 'web');
-        formData.append('source', 'upload');
-
-        const progressBar = document.querySelector('#uploadProgress div');
-        const progressText = document.querySelector('#uploadProgress p');
-        const progressContainer = document.getElementById('uploadProgress');
-        progressContainer.classList.remove('hidden');
-
-        try {
-            const response = await axios.post('/admin/videos/upload', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                },
-                onUploadProgress: (progressEvent) => {
-                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                    progressBar.style.width = percentCompleted + '%';
-                    progressText.textContent = `上传中... ${percentCompleted}%`;
-                }
-            });
-
-            if (response.data.success) {
-                progressBar.style.width = '100%';
-                progressText.textContent = '上传成功！';
-                showToast('上传成功', 'success', 5000);  // 显示5秒
-
-                // 2秒后关闭对话框并刷新页面
-                setTimeout(() => {
-                    closeUploadModal();
-                    // 再等1秒后刷新页面，让用户有时间看到成功提示
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1000);
-                }, 2000);
-            } else {
-                showToast(response.data.message || '上传失败', 'error', 5000);
-            }
-        } catch (error) {
-            console.error('上传失败:', error);
-            showToast('上传失败: ' + (error.response?.data?.detail || error.message), 'error', 5000);
-        } finally {
-            setTimeout(() => {
-                progressContainer.classList.add('hidden');
-                progressBar.style.width = '0%';
-                progressText.textContent = '正在上传...';
-            }, 2000);
-        }
-    });
-
+    // 视频文件选择事件
     document.getElementById('videoFile').addEventListener('change', function (e) {
         const file = e.target.files[0];
-        if (file) {
-            // 更新文件信息
-            document.getElementById('fileName').textContent = file.name;
-            document.getElementById('fileSize').textContent = formatFileSize(file.size);
+        if (!file) return;
 
-            // 创建视频预览
-            const videoPreview = document.getElementById('videoPreview');
-            videoPreview.innerHTML = '';
-            const video = document.createElement('video');
-            video.src = URL.createObjectURL(file);
-            video.className = 'w-full h-full rounded-lg';
-            video.controls = true;
-            video.id = 'previewVideo';  // 添加ID以便后续操作
-            videoPreview.appendChild(video);
+        document.getElementById('fileName').textContent = file.name;
+        document.getElementById('fileSize').textContent = formatFileSize(file.size);
 
-            // 获取视频元数据
-            video.onloadedmetadata = function () {
-                document.getElementById('duration').textContent = formatDuration(video.duration);
-                document.getElementById('resolution').textContent = `${video.videoWidth}×${video.videoHeight}`;
-            };
-        }
+        const videoPreview = document.getElementById('videoPreview');
+        videoPreview.innerHTML = '';
+        const video = document.createElement('video');
+        video.id = 'previewVideo';
+        video.src = URL.createObjectURL(file);
+        video.className = 'w-full h-full rounded-lg';
+        video.controls = true;
+        videoPreview.appendChild(video);
+
+        video.onloadedmetadata = function () {
+            document.getElementById('duration').textContent = formatDuration(video.duration);
+            document.getElementById('resolution').textContent = `${video.videoWidth}×${video.videoHeight}`;
+        };
     });
 
     function formatFileSize(bytes) {
@@ -808,59 +580,174 @@
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
 
-    // 状态下拉菜单管理
-    let currentOpenDropdown = null;
+    function clearSelectedProduct() {
+        const selectedProduct = document.getElementById('selectedProduct');
+        const searchInput = document.getElementById('searchInput');
+        const itemIdInput = document.getElementById('itemId');
+        const itemIdSearch = document.getElementById('itemIdSearch');
 
-    function toggleStatusDropdown(videoId) {
-        const dropdown = document.getElementById(`statusDropdown_${videoId}`);
+        if (!selectedProduct || !searchInput || !itemIdInput || !itemIdSearch) return;  // 添加检查
 
-        // 如果有其他打开的下拉菜单，先关闭它
-        if (currentOpenDropdown && currentOpenDropdown !== dropdown) {
-            currentOpenDropdown.classList.add('hidden');
-        }
-
-        dropdown.classList.toggle('hidden');
-        currentOpenDropdown = dropdown.classList.contains('hidden') ? null : dropdown;
+        selectedProduct.classList.add('hidden');
+        searchInput.classList.remove('hidden');
+        itemIdInput.value = '';
+        itemIdSearch.value = '';
     }
 
-    // 点击其他地方关闭下拉菜单
-    document.addEventListener('click', function (event) {
-        if (!event.target.closest('.relative')) {
-            if (currentOpenDropdown) {
-                currentOpenDropdown.classList.add('hidden');
-                currentOpenDropdown = null;
-            }
+    // 显示Toast提示
+    function showToast(message, type = 'success') {
+        const toast = document.getElementById('toast');
+        const toastContent = toast.querySelector('.flex');
+        const toastMessage = toast.querySelector('.text-sm');
+        const successIcon = document.getElementById('toast-success-icon');
+        const errorIcon = document.getElementById('toast-error-icon');
+
+        // 重置图标
+        successIcon.classList.add('hidden');
+        errorIcon.classList.add('hidden');
+
+        // 设置样式
+        if (type === 'success') {
+            toastContent.className = 'flex items-center px-4 py-3 rounded-lg shadow-lg bg-green-50';
+            toastMessage.className = 'text-sm font-medium text-green-800';
+            successIcon.classList.remove('hidden');
+        } else if (type === 'error') {
+            toastContent.className = 'flex items-center px-4 py-3 rounded-lg shadow-lg bg-red-50';
+            toastMessage.className = 'text-sm font-medium text-red-800';
+            errorIcon.classList.remove('hidden');
+        }
+
+        toastMessage.textContent = message;
+        toast.classList.remove('translate-x-full', 'opacity-0');
+
+        // 3秒后隐藏
+        setTimeout(() => {
+            toast.classList.add('translate-x-full', 'opacity-0');
+        }, 3000);
+    }
+
+    // 处理表单提交
+    document.getElementById('uploadForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const videoFile = document.getElementById('videoFile').files[0];
+        const itemId = document.getElementById('itemId').value;
+        const description = document.getElementById('description').value;
+
+        if (!videoFile || !itemId) {
+            showToast('请选择视频文件并关联商品', 'error');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('video_file', videoFile);
+        formData.append('item_id', itemId);
+        formData.append('description', description);
+
+        try {
+            // 显示上传进度条
+            const progressBar = document.querySelector('#uploadProgress .bg-blue-500');
+            const progressContainer = document.getElementById('uploadProgress');
+            progressContainer.classList.remove('hidden');
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/admin/videos/upload', true);
+
+            // 处理上传进度
+            xhr.upload.onprogress = function (e) {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    progressBar.style.width = percentComplete + '%';
+                }
+            };
+
+            // 处理上传完成
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.success) {
+                        showToast('上传成功', 'success');
+                        setTimeout(() => window.location.reload(), 2000);
+                    } else {
+                        showToast(response.message || '上传失败', 'error');
+                    }
+                } else {
+                    showToast(`上传失败: ${xhr.status}`, 'error');
+                }
+            };
+
+            // 处理上传错误
+            xhr.onerror = function () {
+                showToast('网络错误，上传失败', 'error');
+            };
+
+            xhr.send(formData);
+        } catch (error) {
+            console.error('上传出错:', error);
+            showToast(error.message || '上传失败', 'error');
         }
     });
 
-    // 更新视频状态
-    async function updateVideoStatus(videoId, newStatus) {
-        try {
-            const response = await fetch(`/admin/videos/${videoId}/status`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({
-                    status: newStatus
-                })
-            });
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', () => {
+        loadProducts();
+    });
 
-            if (response.ok) {
-                showToast('状态更新成功', 'success');
-                // 延迟刷新页面，让用户看到成功提示
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1000);
-            } else {
-                const data = await response.json();
-                showToast(data.detail || '更新状态失败', 'error');
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            showToast('更新状态失败', 'error');
+    // 视频播放相关函数
+    function openPlayer(videoId) {
+        const modal = document.getElementById('playerModal');
+        const player = document.getElementById('player');
+        const video = document.querySelector(`[data-video-id="${videoId}"]`);
+
+        if (video) {
+            const videoKey = video.getAttribute('data-video-url');
+            // 获取签名URL
+            fetch(`/admin/videos/${videoId}/play`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.url) {
+                        player.src = data.url;
+                        modal.showModal();
+
+                        // 自动播放
+                        player.play().catch(function (error) {
+                            console.log("视频自动播放失败:", error);
+                        });
+                    } else {
+                        showToast('获取视频播放地址失败', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('获取视频播放地址失败:', error);
+                    showToast('获取视频播放地址失败', 'error');
+                });
         }
     }
+
+    function closePlayer() {
+        const modal = document.getElementById('playerModal');
+        const player = document.getElementById('player');
+
+        // 停止播放
+        player.pause();
+        player.currentTime = 0;
+        player.src = '';
+
+        modal.close();
+    }
+
+    // 当点击模态框背景时关闭
+    document.getElementById('playerModal').addEventListener('click', function (e) {
+        if (e.target === this) {
+            closePlayer();
+        }
+    });
+
+    // 添加ESC键关闭支持
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            closePlayer();
+        }
+    });
 </script>
 {% endblock %}
