@@ -428,7 +428,7 @@ async def list_published_videos(request: Request, page: int = 1, current_user: d
         if oss_service.is_available():
             for v in videos:
                 style = "video/snapshot,t_1000,f_jpg,w_320,m_fast"
-                thumb_map[v.id] = oss_service.bucket.sign_url("GET", v.file_id, 3600, params={"x-oss-process": style})
+                thumb_map[v.id] = oss_service.bucket.sign_url("GET", v.oss_object_key, 3600, params={"x-oss-process": style})
 
         return templates.TemplateResponse(
             "admin/published_videos.html",
@@ -457,6 +457,28 @@ async def upload_published_video(
     if not video_file.content_type or not video_file.content_type.startswith("video/"):
         raise HTTPException(400, "请上传视频文件")
 
+    # 检查文件大小
+    MAX_FILE_SIZE = 500 * 1024 * 1024  # 500MB in bytes
+    try:
+        size = 0
+        while chunk := await video_file.read(8192):  # 8KB chunks
+            size += len(chunk)
+            if size > MAX_FILE_SIZE:
+                raise HTTPException(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    detail=f"文件大小超过限制（最大500MB）"
+                )
+        # 重置文件指针
+        await video_file.seek(0)
+    except Exception as e:
+        if not isinstance(e, HTTPException):
+            logger.error(f"检查文件大小时出错: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="检查文件大小时出错"
+            )
+        raise e
+
     temp_path = None
     try:
         # 保存到临时文件
@@ -472,63 +494,105 @@ async def upload_published_video(
         file_url = f"/uploads/videos/{video_file.filename}"
         oss_key = ""
         if oss_service.is_available():
-            ok, key, public = oss_service.upload_temp_file(temp_path, video_file.filename, video_file.content_type)
-            if not ok:
-                raise HTTPException(500, f"上传失败: {key}")
-            oss_key = key
-            file_url = public
+            success, result, public_url = oss_service.upload_temp_file(
+                temp_path, 
+                video_file.filename,
+                video_file.content_type
+            )
+            
+            if success:
+                oss_key = result
+                file_url = public_url
+                logger.info(f"文件上传到OSS成功: {video_file.filename} -> {oss_key}")
+            else:
+                logger.error(f"OSS上传失败: {result}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"文件上传失败: {result}"
+                )
+        else:
+            logger.warning("OSS不可用，使用本地存储")
 
         # 提取元数据
-        meta = video_service.extract_video_metadata(temp_path)
-        v_info = meta.get("video", {})
-        duration_ms = int(float(meta["format"].get("duration", 0)) * 1000)
-        width = int(v_info.get("width", 0))
-        height = int(v_info.get("height", 0))
-        bitrate = int(v_info.get("bit_rate", 0))
-        frame_rate_str = v_info.get("r_frame_rate", "0/1")
-        if "/" in frame_rate_str:
-            num, den = frame_rate_str.split("/")
-            frame_rate = int(float(num)/float(den)) if float(den)!=0 else 0
-        else:
-            frame_rate = int(float(frame_rate_str))
-
-        file_id = os.path.basename(file_url)
-
-        with Session(engine) as session:
-            video_row = Video(
-                file_id=file_id,
-                video_material_id="",
-                url=file_url,
-                item_id=item_id,
-                sku_id=item_id,
-                width=width,
-                height=height,
-                duration=duration_ms,
-                format=v_info.get("codec_name", "unknown"),
-                bitrate=bitrate,
-                frame_rate=frame_rate,
-                colour_primaries=v_info.get("color_primaries", ""),
-                matrix_coefficients=v_info.get("color_space", ""),
-                transfer_characteristics=v_info.get("color_transfer", ""),
-                rotation=int(v_info.get("tags", {}).get("rotate", 0)) if v_info.get("tags") else 0,
-                audio_bitrate=0,
-                audio_channels=0,
-                audio_duration=duration_ms,
-                audio_format="",
-                audio_sampling_rate=0,
-                cover_file_id="",
-                cover_url="",
-                cover_width=width,
-                cover_height=height,
-                platform=platform,
-                owner_id=current_user.get("id", ""),
-                is_enabled=True,
-                publish_cnt=0
+        try:
+            meta = video_service.extract_video_metadata(temp_path)
+            v_info = meta.get("video", {})
+            a_info = meta.get("audio", {})
+            
+            # 视频信息
+            duration_ms = int(float(meta["format"].get("duration", 0)) * 1000)
+            width = int(v_info.get("width", 0))
+            height = int(v_info.get("height", 0))
+            bitrate = int(v_info.get("bit_rate", 0))
+            
+            # 帧率处理
+            frame_rate_str = v_info.get("r_frame_rate", "0/1")
+            if "/" in frame_rate_str:
+                num, den = frame_rate_str.split("/")
+                frame_rate = int(float(num)/float(den)) if float(den)!=0 else 0
+            else:
+                frame_rate = int(float(frame_rate_str))
+            
+            # 音频信息
+            audio_bitrate = int(a_info.get("bit_rate", 0))
+            audio_channels = int(a_info.get("channels", 0))
+            audio_sample_rate = int(a_info.get("sample_rate", 0))
+            audio_format = a_info.get("codec_name", "")
+            
+            # 色彩信息
+            colour_primaries = v_info.get("color_primaries", "")
+            matrix_coefficients = v_info.get("color_space", "")
+            transfer_characteristics = v_info.get("color_transfer", "")
+            rotation = int(v_info.get("tags", {}).get("rotate", 0)) if v_info.get("tags") else 0
+            
+            file_id = os.path.basename(file_url)
+            
+            with Session(engine) as session:
+                video_row = Video(
+                    file_id=file_id,
+                    video_material_id="",
+                    url=file_url,
+                    item_id=item_id,
+                    sku_id=item_id,
+                    width=width,
+                    height=height,
+                    duration=duration_ms,
+                    format=v_info.get("codec_name", "unknown"),
+                    bitrate=bitrate,
+                    frame_rate=frame_rate,
+                    colour_primaries=colour_primaries,
+                    matrix_coefficients=matrix_coefficients,
+                    transfer_characteristics=transfer_characteristics,
+                    rotation=rotation,
+                    audio_bitrate=audio_bitrate,
+                    audio_channels=audio_channels,
+                    audio_duration=duration_ms,
+                    audio_format=audio_format,
+                    audio_sampling_rate=audio_sample_rate,
+                    cover_file_id="",
+                    cover_url="",
+                    cover_width=width,
+                    cover_height=height,
+                    platform=platform,
+                    owner_id=current_user.get("id", ""),
+                    is_enabled=True,
+                    publish_cnt=0,
+                    oss_object_key=oss_key,
+                    source="upload"
+                )
+                session.add(video_row)
+                session.commit()
+                session.refresh(video_row)
+                logger.info(f"视频信息已保存到数据库: {video_row.id}")
+            return {"success": True, "message": "上传成功"}
+            
+        except Exception as e:
+            logger.error(f"提取视频元数据失败: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"视频处理失败: {str(e)}"
             )
-            session.add(video_row)
-            session.commit()
-            session.refresh(video_row)
-        return {"success": True, "message": "上传成功"}
+            
     except HTTPException:
         raise
     except Exception as e:
@@ -536,7 +600,10 @@ async def upload_published_video(
         raise HTTPException(500, str(e))
     finally:
         if temp_path and os.path.exists(temp_path):
-            os.unlink(temp_path)
+            try:
+                os.unlink(temp_path)
+            except Exception as e:
+                logger.warning(f"清理临时文件失败: {str(e)}")
 
 @router.put("/published/{video_id}/status", response_model=dict)
 async def update_published_video_status(
@@ -570,3 +637,21 @@ async def update_published_video_status(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"更新视频状态失败: {str(e)}"
         )
+
+@router.get("/published/{video_id}/play")
+async def play_published_video(video_id: int, current_user: dict = Depends(require_admin())):
+    """
+    返回待发布视频的可直接播放的临时 URL（有效 1 小时）
+    """
+    with Session(engine) as s:
+        v = s.get(Video, video_id)
+        if not v:
+            raise HTTPException(404, "视频不存在")
+        if not oss_service.is_available():
+            raise HTTPException(500, "OSS 未配置")
+
+        # 使用 oss_object_key 而不是 file_id
+        signed_url = oss_service.bucket.sign_url(
+            'GET', v.oss_object_key, expires=3600
+        )
+        return {"url": signed_url}

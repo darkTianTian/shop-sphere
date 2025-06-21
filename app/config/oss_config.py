@@ -28,8 +28,17 @@ class OSSConfig:
         ])
     
     @classmethod
+    def get_internal_endpoint(cls) -> str:
+        """获取OSS内部Endpoint（用于上传）"""
+        # 确保endpoint以https://开头
+        if not cls.ENDPOINT.startswith('https://'):
+            return f"https://{cls.ENDPOINT.replace('http://', '')}"
+        return cls.ENDPOINT
+    
+    @classmethod
     def get_public_url(cls, object_key: str) -> str:
         """获取OSS文件的公网访问URL"""
         # 移除endpoint中的协议部分，构建标准URL
         endpoint_without_protocol = cls.ENDPOINT.replace("https://", "").replace("http://", "")
+        # 确保使用HTTPS
         return f"https://{cls.BUCKET_NAME}.{endpoint_without_protocol}/{object_key}" 

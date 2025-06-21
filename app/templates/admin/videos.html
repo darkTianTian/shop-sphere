@@ -730,10 +730,15 @@
         const modal = document.getElementById('playerModal');
         const player = document.getElementById('player');
 
-        // 停止播放
-        player.pause();
-        player.currentTime = 0;
-        player.src = '';
+        // 确保视频完全停止播放
+        try {
+            player.pause();  // 暂停播放
+            player.currentTime = 0;  // 重置播放位置
+            player.src = '';  // 清除视频源
+            player.load();  // 强制重新加载，确保完全停止
+        } catch (e) {
+            console.error('停止视频播放时出错:', e);
+        }
 
         modal.close();
     }
@@ -749,6 +754,19 @@
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
             closePlayer();
+        }
+    });
+
+    // 当模态框关闭时确保视频停止播放
+    document.getElementById('playerModal').addEventListener('close', function () {
+        const player = document.getElementById('player');
+        try {
+            player.pause();
+            player.currentTime = 0;
+            player.src = '';
+            player.load();
+        } catch (e) {
+            console.error('停止视频播放时出错:', e);
         }
     });
 

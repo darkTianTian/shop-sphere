@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Optional, Tuple
 import oss2
 from app.config.oss_config import OSSConfig
+import time
 
 
 class OSSService:
@@ -20,7 +21,13 @@ class OSSService:
         else:
             # 初始化OSS客户端
             auth = oss2.Auth(self.config.ACCESS_KEY_ID, self.config.ACCESS_KEY_SECRET)
-            self.bucket = oss2.Bucket(auth, self.config.ENDPOINT, self.config.BUCKET_NAME)
+            # 使用内部endpoint
+            endpoint = self.config.get_internal_endpoint()
+            self.bucket = oss2.Bucket(auth, endpoint, self.config.BUCKET_NAME)
+            # 配置重试
+            self.bucket.enable_crc = False  # 禁用CRC校验以提高性能
+            self.bucket.connection_timeout = 120  # 连接超时时间（秒）
+            self.bucket.max_retries = 5  # 最大重试次数
     
     def is_available(self) -> bool:
         """检查OSS服务是否可用"""
@@ -83,18 +90,30 @@ class OSSService:
             if content_type:
                 headers['Content-Type'] = content_type
             
-            # 上传文件
-            result = self.bucket.put_object(object_key, file_content, headers=headers)
-            self.logger.info(f"status code: {result.status}, request_id: {result.request_id}")
+            # 上传文件（带重试）
+            max_retries = 3
+            retry_count = 0
+            while retry_count < max_retries:
+                try:
+                    result = self.bucket.put_object(object_key, file_content, headers=headers)
+                    self.logger.info(f"status code: {result.status}, request_id: {result.request_id}")
+                    
+                    if result.status == 200:
+                        # 生成公网访问URL
+                        public_url = self.config.get_public_url(object_key)
+                        self.logger.info(f"文件上传成功: {filename} -> {object_key}")
+                        return True, object_key, public_url
+                    else:
+                        self.logger.error(f"文件上传失败: {filename}, 状态码: {result.status}")
+                        retry_count += 1
+                except Exception as e:
+                    self.logger.error(f"上传出错 (重试 {retry_count + 1}/{max_retries}): {str(e)}")
+                    retry_count += 1
+                    if retry_count < max_retries:
+                        time.sleep(2 ** retry_count)  # 指数退避
+                    continue
             
-            if result.status == 200:
-                # 生成公网访问URL
-                public_url = self.config.get_public_url(object_key)
-                self.logger.info(f"文件上传成功: {filename} -> {object_key}")
-                return True, object_key, public_url
-            else:
-                self.logger.error(f"文件上传失败: {filename}, 状态码: {result.status}")
-                return False, f"上传失败，状态码: {result.status}", ""
+            return False, f"上传失败，已重试{max_retries}次", ""
                 
         except Exception as e:
             self.logger.error(f"文件上传异常: {filename}, 错误: {str(e)}")
