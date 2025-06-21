@@ -4,6 +4,7 @@ import sqlalchemy as sa
 from enum import Enum
 from sqlmodel import SQLModel, Field
 from app.models.base import BaseModel
+from typing import Optional
 
 class VideoStatus(str, Enum):
     """视频状态"""
@@ -58,13 +59,15 @@ class VideoMaterial(BaseModel, table=True):
                 }
             },"""
     __tablename__ = "video_material"
-    name: str = Field(description="视频素材名称", sa_type=sa.String(length=255))
-    description: str = Field(description="视频素材描述", sa_type=sa.String(length=1024))
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(description="视频素材名称")
+    description: str = Field(default="", description="视频素材描述")
     file_extension: str = Field(description="文件扩展名", sa_type=sa.String(length=10))
     uuid: str = Field(index=True, description="UUID", default_factory=lambda: uuid.uuid4().hex)
     url: str = Field(index=True, description="视频URL")
     oss_object_key: str = Field(default="", description="OSS对象键名", sa_type=sa.String(length=512))
     file_size: int = Field(default=0, description="文件大小（字节）")
+    file_hash: str = Field(default="", index=True, description="文件SHA256哈希值", sa_type=sa.String(length=64))
     item_id: str = Field(index=True, description="商品ID")
     sku_id: str = Field(index=True, description="SKU ID")
     status: str = Field(description="状态", sa_type=sa.Enum(VideoStatus), default=VideoStatus.DRAFT)
@@ -89,10 +92,12 @@ class VideoMaterial(BaseModel, table=True):
     platform: str = Field(description="平台", sa_type=sa.String(length=32))
     author_id: str = Field(description="作者ID")
     owner_id: str = Field(index=True, description="所有者ID")
-    source: str = Field(description="来源", sa_type=sa.String(length=32))
+    source: str = Field(description="来源", sa_type=sa.String(length=32), default="upload")
 
 
 class Video(BaseModel, table=True):
+    """待发布视频"""
+    id: Optional[int] = Field(default=None, primary_key=True)
     file_id: str = Field(index=True, description="文件ID")
     video_material_id: str = Field(index=True, description="视频素材ID")
     url: str = Field(description="第三方视频URL")
@@ -119,8 +124,9 @@ class Video(BaseModel, table=True):
     cover_height: int = Field(description="封面高度")
     platform: str = Field(description="平台", sa_type=sa.String(length=32))
     owner_id: str = Field(index=True, description="所有者ID")
-    source: str = Field(description="来源", sa_type=sa.String(length=32))
     is_enabled: bool = Field(default=True, description="是否可用")
     oss_object_key: str = Field(default="", description="OSS对象键名", sa_type=sa.String(length=512))
+    file_hash: str = Field(default="", index=True, description="文件SHA256哈希值", sa_type=sa.String(length=64))
     publish_cnt: int = Field(default=0, description="发布次数")
+    source: str = Field(description="来源", sa_type=sa.String(length=32), default="upload")
     

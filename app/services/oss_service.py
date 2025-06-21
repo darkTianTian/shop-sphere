@@ -1,6 +1,7 @@
 import os
 import uuid
 import logging
+import hashlib
 from datetime import datetime
 from typing import Optional, Tuple
 import oss2
@@ -33,12 +34,25 @@ class OSSService:
         """检查OSS服务是否可用"""
         return self.bucket is not None
     
-    def generate_object_key(self, filename: str, prefix: str = None) -> str:
+    def calculate_file_hash(self, file_content: bytes) -> str:
+        """
+        计算文件内容的SHA256哈希值
+        
+        Args:
+            file_content: 文件内容（字节）
+            
+        Returns:
+            文件的SHA256哈希值
+        """
+        return hashlib.sha256(file_content).hexdigest()
+
+    def generate_object_key(self, filename: str, file_hash: str, prefix: str = None) -> str:
         """
         生成OSS对象键名
         
         Args:
             filename: 原始文件名
+            file_hash: 文件哈希值
             prefix: 前缀路径，默认使用配置中的VIDEO_PREFIX
             
         Returns:
@@ -50,10 +64,10 @@ class OSSService:
         # 获取文件扩展名
         _, ext = os.path.splitext(filename)
         
-        # 生成唯一文件名：日期 + UUID + 扩展名
+        # 生成唯一文件名：日期 + 哈希值前8位 + 扩展名
         date_str = datetime.now().strftime("%Y%m%d%H%M%S")
-        unique_id = uuid.uuid4().hex[:8]
-        new_filename = f"{unique_id}_{date_str}{ext}"
+        hash_prefix = file_hash[:8]
+        new_filename = f"{hash_prefix}_{date_str}{ext}"
         
         return f"{prefix}{new_filename}"
     
@@ -82,13 +96,17 @@ class OSSService:
             if ext.lower() not in self.config.ALLOWED_VIDEO_EXTENSIONS:
                 return False, f"不支持的文件格式: {ext}", ""
             
+            # 计算文件哈希值
+            file_hash = self.calculate_file_hash(file_content)
+            
             # 生成对象键名
-            object_key = self.generate_object_key(filename)
+            object_key = self.generate_object_key(filename, file_hash)
             
             # 设置上传参数
-            headers = {}
-            if content_type:
-                headers['Content-Type'] = content_type
+            headers = {
+                'Content-Type': content_type if content_type else 'application/octet-stream',
+                'x-oss-meta-hash': file_hash  # 将哈希值存储在元数据中
+            }
             
             # 上传文件（带重试）
             max_retries = 3
@@ -101,7 +119,7 @@ class OSSService:
                     if result.status == 200:
                         # 生成公网访问URL
                         public_url = self.config.get_public_url(object_key)
-                        self.logger.info(f"文件上传成功: {filename} -> {object_key}")
+                        self.logger.info(f"文件上传成功: {filename} -> {object_key}, hash: {file_hash}")
                         return True, object_key, public_url
                     else:
                         self.logger.error(f"文件上传失败: {filename}, 状态码: {result.status}")
