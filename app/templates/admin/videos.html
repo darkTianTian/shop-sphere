@@ -623,10 +623,36 @@
 
     function closeUploadModal() {
         const modal = document.getElementById('uploadModal');
+        const video = document.getElementById('previewVideo');
+        if (video) {
+            video.pause();  // 暂停视频播放
+            video.currentTime = 0;  // 重置播放位置
+            URL.revokeObjectURL(video.src);  // 释放视频URL
+        }
         modal.close();
         document.getElementById('uploadForm').reset();
         document.getElementById('uploadProgress').classList.add('hidden');
+
+        // 清空预览区域
+        const videoPreview = document.getElementById('videoPreview');
+        videoPreview.innerHTML = '<span class="text-gray-400">选择视频后在此处预览</span>';
+
+        // 重置文件信息
+        document.getElementById('fileName').textContent = '-';
+        document.getElementById('fileSize').textContent = '-';
+        document.getElementById('duration').textContent = '-';
+        document.getElementById('resolution').textContent = '-';
     }
+
+    // 添加模态框关闭事件监听
+    document.getElementById('uploadModal').addEventListener('close', function () {
+        const video = document.getElementById('previewVideo');
+        if (video) {
+            video.pause();
+            video.currentTime = 0;
+            URL.revokeObjectURL(video.src);
+        }
+    });
 
     // Toast提示函数
     function showToast(message, type = 'success', duration = 3000) {
@@ -730,6 +756,7 @@
             video.src = URL.createObjectURL(file);
             video.className = 'w-full h-full rounded-lg';
             video.controls = true;
+            video.id = 'previewVideo';  // 添加ID以便后续操作
             videoPreview.appendChild(video);
 
             // 获取视频元数据
