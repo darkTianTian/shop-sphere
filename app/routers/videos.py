@@ -549,7 +549,6 @@ async def upload_published_video(
             
             with Session(engine) as session:
                 video_row = Video(
-                    file_id=file_id,
                     video_material_id="",
                     url=file_url,
                     item_id=item_id,
@@ -570,9 +569,6 @@ async def upload_published_video(
                     audio_format=audio_format,
                     audio_sampling_rate=audio_sample_rate,
                     cover_file_id="",
-                    cover_url="",
-                    cover_width=width,
-                    cover_height=height,
                     platform=platform,
                     owner_id=current_user.get("id", ""),
                     is_enabled=True,

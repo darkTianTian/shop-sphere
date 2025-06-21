@@ -231,8 +231,8 @@ class XiaohongshuNoteBuilder:
             }
         }
         video_info = {
-            "fileid": video.file_id,
-            "file_id": video.file_id,
+            "fileid": video.third_file_id,
+            "file_id": video.third_file_id,
             "format_width": video.width,
             "format_height": video.height,
             "video_preview_type": "full_vertical_screen",
@@ -241,8 +241,8 @@ class XiaohongshuNoteBuilder:
             "cover": {
                 "fileid": video.cover_file_id,
                 "file_id": video.cover_file_id,
-                "height": video.cover_height,
-                "width": video.cover_width,
+                "height": video.height,
+                "width": video.width,
                 "frame": {
                     "ts": 0,                    # 时间戳：第0秒作为封面
                     "is_user_select": False,    # 是否用户选择：系统自动选择

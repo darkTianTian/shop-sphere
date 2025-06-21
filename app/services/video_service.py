@@ -235,9 +235,6 @@ class VideoService:
             audio_duration=duration_ms,  # 通常音频和视频时长相同
             audio_format=audio_format,
             audio_sampling_rate=audio_sample_rate,
-            cover_url="",
-            cover_width=width,
-            cover_height=height,
             platform=platform,
             author_id=author_id,
             owner_id=owner_id,
