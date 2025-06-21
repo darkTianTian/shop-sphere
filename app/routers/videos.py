@@ -34,6 +34,13 @@ async def list_videos(request: Request, page: int = 1, current_user: dict = Depe
             products = session.exec(select(Product).where(Product.item_id.in_(item_ids))).all()
             product_map = {p.item_id: p for p in products}
 
+        # 生成缩略图签名URL
+        thumb_map: dict[int,str] = {}
+        if oss_service.is_available():
+            for v in videos:
+                style = "video/snapshot,t_1000,f_jpg,w_320,m_fast"
+                thumb_map[v.id] = oss_service.bucket.sign_url('GET', v.oss_object_key, 3600, params={'x-oss-process': style})
+
         return templates.TemplateResponse(
             "admin/videos.html",
             {
@@ -42,6 +49,7 @@ async def list_videos(request: Request, page: int = 1, current_user: dict = Depe
                 "videos": videos,
                 "product_map": product_map,
                 "VideoStatus": VideoStatus,
+                "thumb_map": thumb_map,
                 "page": page,
                 "total_pages": total_pages,
                 "has_prev": page>1,
