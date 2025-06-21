@@ -4,12 +4,8 @@
 
 {% block content %}
 <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-    <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+    <div class="px-4 py-5 sm:px-6">
         <h3 class="text-lg leading-6 font-medium text-gray-900">商品管理</h3>
-        <a href="/admin/products/create"
-            class="bg-primary text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
-            添加商品
-        </a>
     </div>
     <div class="border-t border-gray-200">
         <div class="bg-white">
@@ -90,11 +86,17 @@
                             </div>
                             {% endif %}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                <a href="/admin/products/{{ product.id }}/edit"
-                                    class="text-primary hover:text-blue-700">编辑</a>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <button onclick="deleteProduct('{{ product.id }}')"
-                                    class="text-red-600 hover:text-red-800">删除</button>
+                                    class="inline-flex items-center px-2.5 py-0.5 rounded bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20"
+                                        fill="currentColor">
+                                        <path fill-rule="evenodd"
+                                            d="M9 2a1 1 0 011 1v1h5a1 1 0 110 2H5a1 1 0 110-2h5V3a1 1 0 011-1zM5 7a1 1 0 011 1v7a1 1 0 102 0V8a1 1 0 112 0v7a1 1 0 102 0V8a1 1 0 112 0v7a1 1 0 102 0V8a1 1 0 011-1h-1V6H6v1H5z"
+                                            clip-rule="evenodd" />
+                                    </svg>
+                                    删除
+                                </button>
                             </td>
                             </tr>
                             {% endfor %}

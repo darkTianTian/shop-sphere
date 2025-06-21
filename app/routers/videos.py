@@ -27,7 +27,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # 创建路由器
-router = APIRouter(prefix="/admin", tags=["videos"])
+router = APIRouter(prefix="/admin/videos", tags=["videos"])
 
 # 视频素材服务实例
 video_service = VideoService(logger=logger)
@@ -44,9 +44,12 @@ class VideoMaterialUploadResponse(BaseModel):
     video_material_id: Optional[int] = None
     video_material_info: Optional[dict] = None
 
+class VideoStatusUpdate(BaseModel):
+    status: str
+
 # ------------------ 视频管理页面 ------------------
 
-@router.get("/videos", response_class=HTMLResponse)
+@router.get("", response_class=HTMLResponse)
 async def list_videos(request: Request, page: int = 1, current_user: dict = Depends(require_admin())):
     page = max(page, 1)
     with Session(engine) as session:
@@ -84,7 +87,7 @@ async def list_videos(request: Request, page: int = 1, current_user: dict = Depe
             }
         )
 
-@router.get("/videos/{video_id}/play")
+@router.get("/{video_id}/play")
 async def play_video(video_id: int, current_user: dict = Depends(require_admin())):
     """
     返回可以直接播放的临时 URL（有效 1 小时）
@@ -104,7 +107,7 @@ async def play_video(video_id: int, current_user: dict = Depends(require_admin()
 
 # ------------------ 视频上传和管理API ------------------
 
-@router.post("/videos/upload", response_model=VideoMaterialUploadResponse)
+@router.post("/upload", response_model=VideoMaterialUploadResponse)
 async def upload_video_material(
     video_file: UploadFile = File(..., description="视频文件"),
     item_id: str = Form(..., description="商品ID"),
@@ -356,4 +359,46 @@ async def get_video_materials_by_item(item_id: str, current_user: dict = Depends
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取商品视频素材列表失败: {str(e)}"
+        )
+
+@router.put("/{video_id}/status", response_model=dict)
+async def update_video_status(
+    video_id: int, 
+    status_update: VideoStatusUpdate,
+    current_user: dict = Depends(require_admin())
+):
+    """更新视频状态"""
+    try:
+        with Session(engine) as session:
+            video = session.get(VideoMaterial, video_id)
+            if not video:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="视频不存在"
+                )
+            
+            # 验证状态值是否有效
+            try:
+                new_status = VideoStatus(status_update.status)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="无效的状态值"
+                )
+            
+            # 更新状态
+            video.status = new_status
+            session.add(video)
+            session.commit()
+            session.refresh(video)
+            
+            return {"success": True, "message": "状态更新成功"}
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"更新视频状态失败: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"更新视频状态失败: {str(e)}"
         )
