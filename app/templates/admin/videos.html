@@ -56,7 +56,7 @@
                                     </thead>
                                     <tbody class="bg-white divide-y divide-gray-200">
                                         {% for v in videos %}
-                                        <tr class="h-20">
+                                        <tr class="h-40">
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 {{ v.id }}
                                             </td>
@@ -90,20 +90,21 @@
                                                 </div>
                             </div>
                             </td>
-                            <td class="py-4 text-center">
+                            <td class="py-4 text-center align-middle">
                                 {% set prod = product_map.get(v.item_id) %}
                                 {% if prod %}
-                                <div class="inline-flex items-center">
+                                <div class="inline-flex items-start">
                                     {% set thumb = (prod.images[0].link if prod.images and prod.images[0].get('link')
                                     else None) %}
-                                    <div class="flex-shrink-0 h-8 w-8">
-                                        <img class="h-8 w-8 rounded-md object-cover"
-                                            src="{{ (thumb ~ '?imageView2/2/w/80/format/webp/q/75') if thumb else '/static/images/placeholder.png' }}"
+                                    <div class="flex-shrink-0 h-16 w-16">
+                                        <img class="h-16 w-16 rounded-md object-cover"
+                                            src="{{ (thumb ~ '?imageView2/2/w/160/format/webp/q/75') if thumb else '/static/images/placeholder.png' }}"
                                             alt="{{ prod.item_name }}">
                                     </div>
-                                    <div class="ml-2 text-sm text-gray-900">
-                                        <div class="truncate w-40 font-medium">{{ prod.item_name }}</div>
-                                        <div class="flex items-center text-xs text-gray-500 space-x-1">
+                                    <div class="ml-3 text-left">
+                                        <div class="text-sm text-gray-900 font-medium line-clamp-2 max-w-xs">{{
+                                            prod.item_name }}</div>
+                                        <div class="flex items-center text-xs text-gray-500 space-x-1 mt-1">
                                             <span>ID:</span>
                                             <div class="group relative inline-flex items-center cursor-pointer select-none rounded bg-gray-50 hover:bg-gray-100 px-1.5 py-0.5 font-mono text-gray-700 transition-all copy-wrap"
                                                 onclick="copyToClipboard('{{ prod.item_id }}', event)">
@@ -167,6 +168,7 @@
             </div>
         </div>
     </div>
+</div>
 </div>
 
 <!-- 上传视频模态框 -->
