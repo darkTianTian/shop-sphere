@@ -17,7 +17,7 @@
                                 <table class="min-w-full divide-y divide-gray-200">
                                     <colgroup>
                                         <col span="1"> <!-- ID -->
-                                        <col span="1" style="width: 200px !important"> <!-- 封面列固定 200px -->
+                                        <col span="1" style="width: 200px"> <!-- 视频列固定 200px -->
                                         <!-- 其余列不用写 -->
                                     </colgroup>
                                     <thead class="bg-gray-50">
@@ -28,7 +28,7 @@
                                             <th class="py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                                                 style="width:200px">视频</th>
                                             <th
-                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                class="py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                 关联商品</th>
                                             <th
                                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -62,11 +62,27 @@
                                                     {% set calc_height = (200 / video_ratio) if video_ratio > 0 else 112
                                                     %}
                                                     {% set display_height = calc_height if calc_height <= 120 else 120
-                                                        %} <div style="width:200px; height:{{ display_height }}px;">
+                                                        %} <div style="width:200px; height:{{ display_height }}px;"
+                                                        class="relative group">
                                                         <img src="{{ thumb_map[v.id] }}"
                                                             style="width:100%; height:100%; object-fit:contain"
-                                                            class="rounded cursor-pointer hover:opacity-80 transition"
+                                                            class="rounded transition">
+                                                        <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300 cursor-pointer"
                                                             onclick="openPlayer('{{ v.id }}')">
+                                                            <div
+                                                                class="w-12 h-12 rounded-full bg-black bg-opacity-50 flex items-center justify-center transform scale-0 group-hover:scale-100 transition-transform duration-300">
+                                                                <svg xmlns="http://www.w3.org/2000/svg"
+                                                                    class="h-8 w-8 text-white" fill="none"
+                                                                    viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                                        stroke-width="2"
+                                                                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                                        stroke-width="2"
+                                                                        d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                </svg>
+                                                            </div>
+                                                        </div>
                                                 </div>
                             </div>
                             </td>
@@ -104,27 +120,19 @@
                                 <span class="text-xs text-gray-400">无</span>
                                 {% endif %}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ v.width
-                                }}×{{ v.height }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{
-                                (v.duration//1000) }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ v.width }}×{{ v.height }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ (v.duration//1000) }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 <span
-                                    class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                                                            {% if v.status == VideoStatus.FINISHED.value or v.status == VideoStatus.USED.value %}bg-green-100 text-green-800
-                                                                            {% elif v.status == VideoStatus.REMOVE_WATERMARK.value or v.status == VideoStatus.AUDIO_REPLACE.value %}bg-yellow-100 text-yellow-800
-                                                                            {% elif v.status == VideoStatus.REMOVE_WATERMARK_FAILED.value or v.status == VideoStatus.AUDIO_REPLACE_FAILED.value %}bg-red-100 text-red-800
-                                                                            {% else %}bg-gray-100 text-gray-800{% endif %}">
-                                    {{ v.status.value if v.status.__class__.__name__=='VideoStatus' else
-                                    v.status }}
+                                    class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {% if v.status == VideoStatus.FINISHED.value or v.status == VideoStatus.USED.value %}bg-green-100 text-green-800{% elif v.status == VideoStatus.REMOVE_WATERMARK.value or v.status == VideoStatus.AUDIO_REPLACE.value %}bg-yellow-100 text-yellow-800{% elif v.status == VideoStatus.REMOVE_WATERMARK_FAILED.value or v.status == VideoStatus.AUDIO_REPLACE_FAILED.value %}bg-red-100 text-red-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ v.status.value if v.status.__class__.__name__=='VideoStatus' else v.status }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ v.source }}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ v.uuid }}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{
-                                v.create_at|datetimeformat }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ v.source }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ v.uuid }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ v.create_at|datetimeformat
+                                }}</td>
                             </tr>
                             {% endfor %}
                             </tbody>
@@ -160,21 +168,30 @@
 </div>
 </div>
 </div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
 {% endblock %}
 
 {% block extra_scripts %}
-<div id="playerModal" class="fixed inset-0 z-50 hidden items-center justify-center">
-    <div class="absolute inset-0 bg-black opacity-60" onclick="closePlayer()"></div>
-    <div class="relative bg-black rounded-lg shadow-lg max-w-md w-full">
-        <video id="videoPlayer" class="w-full h-auto" controls></video>
+<dialog id="playerModal" class="w-full h-full bg-transparent p-0 m-0">
+    <div class="fixed inset-0 bg-black bg-opacity-60"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="relative bg-black rounded-lg shadow-lg w-full max-w-3xl">
+            <div class="absolute top-0 right-0 p-2 z-10">
+                <button type="button"
+                    class="bg-black bg-opacity-50 rounded-full p-2 text-white hover:bg-opacity-70 transition-all"
+                    onclick="closePlayer()">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="aspect-video">
+                <video id="videoPlayer" class="w-full h-full object-contain" controls></video>
+            </div>
+        </div>
     </div>
-</div>
+</dialog>
 
 <script>
     function copyToClipboard(text, evt) {
@@ -211,29 +228,46 @@
         try {
             const r = await fetch(`/admin/videos/${id}/play`);
             const data = await r.json();
-            const v = document.getElementById('videoPlayer');
-            v.src = data.url; v.play();
             const modal = document.getElementById('playerModal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        } catch (e) { alert('无法播放视频'); }
-    }
-    function closePlayer() {
-        const modal = document.getElementById('playerModal');
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        const v = document.getElementById('videoPlayer');
-        v.pause(); v.src = '';
+            const player = document.getElementById('videoPlayer');
+
+            player.src = data.url;
+            modal.showModal();
+            player.play();
+
+            modal.addEventListener('close', () => {
+                player.pause();
+                player.src = '';
+            }, { once: true });
+
+        } catch (e) {
+            alert('无法播放视频');
+        }
     }
 
-    // 绑定 Esc 退出
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') {
-            const modal = document.getElementById('playerModal');
-            if (!modal.classList.contains('hidden')) {
-                closePlayer();
-            }
+    function closePlayer() {
+        const modal = document.getElementById('playerModal');
+        modal.close();
+    }
+
+    // 添加样式
+    const style = document.createElement('style');
+    style.textContent = `
+        dialog::backdrop {
+            background: transparent;
         }
-    });
+        dialog {
+            background: transparent;
+            border: none;
+            width: 100vw;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+        }
+        dialog:focus {
+            outline: none;
+        }
+    `;
+    document.head.appendChild(style);
 </script>
 {% endblock %}
