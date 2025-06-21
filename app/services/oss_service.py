@@ -85,8 +85,7 @@ class OSSService:
             
             # 上传文件
             result = self.bucket.put_object(object_key, file_content, headers=headers)
-            self.logger.info(f"status code: {result.status}, request_id: {result.request_id}, content md5: {result.content_md5}, "
-                           f"etag: {result.etag}, hash crc64: {result.hash_crc64}, version id: {result.version_id}")
+            self.logger.info(f"status code: {result.status}, request_id: {result.request_id}")
             
             if result.status == 200:
                 # 生成公网访问URL

@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select, func
 import math
 from datetime import datetime
+import json
 
 from app.auth.decorators import require_admin
 from app.internal.db import engine
@@ -37,4 +38,15 @@ async def delete_product(product_id: int, current_user: dict = Depends(require_a
         return {"ok": True}
 
 
-# （文章相关路由已迁移至 app/routers/articles.py） 
+# （文章相关路由已迁移至 app/routers/articles.py）
+
+@router.get("/products/list")
+async def list_products_api(current_user: dict = Depends(require_admin())):
+    """返回商品列表的API"""
+    with Session(engine) as session:
+        products = session.exec(select(Product).order_by(Product.item_create_time.desc())).all()
+        return [{
+            "item_id": p.item_id,
+            "item_name": p.item_name,
+            "image_url": p.images[0].get('link') + '?imageView2/2/w/80/format/webp/q/75' if p.images else None
+        } for p in products]

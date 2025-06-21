@@ -6,6 +6,10 @@
 <div class="bg-white shadow overflow-hidden sm:rounded-lg">
     <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
         <h3 class="text-lg leading-6 font-medium text-gray-900">视频管理</h3>
+        <button onclick="openUploadModal()"
+            class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+            上传视频
+        </button>
     </div>
     <div class="border-t border-gray-200">
         <div class="bg-white">
@@ -164,9 +168,73 @@
         </div>
     </div>
 </div>
-</div>
-</div>
-</div>
+
+<!-- 上传视频模态框 -->
+<dialog id="uploadModal" class="w-full max-w-lg bg-white rounded-lg shadow-xl p-0">
+    <div class="p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-medium text-gray-900">上传视频</h3>
+            <button onclick="closeUploadModal()" class="text-gray-400 hover:text-gray-500">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <form id="uploadForm" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">选择视频文件</label>
+                <input type="file" id="videoFile" accept="video/*" class="mt-1 block w-full" required>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">关联商品</label>
+                <div class="relative mt-1">
+                    <select id="itemId"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        required>
+                        <option value="">请选择商品</option>
+                    </select>
+                    <div id="selectedProduct" class="hidden mt-2 p-2 bg-gray-50 rounded-md">
+                        <div class="flex items-center space-x-3">
+                            <img id="productImage" class="h-12 w-12 rounded-md object-cover" src="" alt="">
+                            <div>
+                                <div id="productName" class="text-sm font-medium text-gray-900"></div>
+                                <div class="text-xs text-gray-500">ID: <span id="productId" class="font-mono"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">描述</label>
+                <textarea id="description" rows="3"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></textarea>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button type="button" onclick="closeUploadModal()"
+                    class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    取消
+                </button>
+                <button type="submit"
+                    class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm font-medium hover:bg-blue-600">
+                    上传
+                </button>
+            </div>
+        </form>
+        <div id="uploadProgress" class="hidden mt-4">
+            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                <div class="bg-blue-500 h-2.5 rounded-full" style="width: 0%"></div>
+            </div>
+            <p class="text-sm text-gray-500 mt-2 text-center">正在上传...</p>
+        </div>
+    </div>
+</dialog>
+
+<!-- Toast提示组件 -->
+<div id="toast" class="fixed top-4 right-4 z-50 transform transition-all duration-300 translate-x-full opacity-0">
+    <div class="flex items-center px-4 py-2 rounded-lg shadow-lg">
+        <div class="text-sm font-medium"></div>
+    </div>
 </div>
 {% endblock %}
 
@@ -269,5 +337,132 @@
         }
     `;
     document.head.appendChild(style);
+
+    // 加载商品列表
+    async function loadProducts() {
+        try {
+            const response = await fetch('/admin/products/list');
+            const products = await response.json();
+            const select = document.getElementById('itemId');
+            const selectedProduct = document.getElementById('selectedProduct');
+            const productImage = document.getElementById('productImage');
+            const productName = document.getElementById('productName');
+            const productId = document.getElementById('productId');
+
+            // 清空现有选项
+            select.innerHTML = '<option value="">请选择商品</option>';
+
+            // 添加商品选项
+            products.forEach(product => {
+                const option = document.createElement('option');
+                option.value = product.item_id;
+                option.textContent = product.item_name;
+                option.dataset.image = product.image_url || '/static/images/placeholder.png';
+                select.appendChild(option);
+            });
+
+            // 监听选择变化
+            select.addEventListener('change', function () {
+                const selectedOption = this.options[this.selectedIndex];
+                if (this.value) {
+                    productImage.src = selectedOption.dataset.image;
+                    productName.textContent = selectedOption.text;
+                    productId.textContent = this.value;
+                    selectedProduct.classList.remove('hidden');
+                } else {
+                    selectedProduct.classList.add('hidden');
+                }
+            });
+        } catch (error) {
+            console.error('加载商品列表失败:', error);
+            showToast('加载商品列表失败', 'error');
+        }
+    }
+
+    function openUploadModal() {
+        const modal = document.getElementById('uploadModal');
+        modal.showModal();
+        loadProducts();
+    }
+
+    function closeUploadModal() {
+        const modal = document.getElementById('uploadModal');
+        modal.close();
+        document.getElementById('uploadForm').reset();
+        document.getElementById('uploadProgress').classList.add('hidden');
+    }
+
+    // Toast提示函数
+    function showToast(message, type = 'success') {
+        const toast = document.getElementById('toast');
+        const messageEl = toast.querySelector('.text-sm');
+
+        // 设置样式
+        if (type === 'success') {
+            toast.querySelector('.flex').className = 'flex items-center px-4 py-2 rounded-lg shadow-lg bg-green-100 text-green-700';
+        } else {
+            toast.querySelector('.flex').className = 'flex items-center px-4 py-2 rounded-lg shadow-lg bg-red-100 text-red-700';
+        }
+
+        // 设置消息
+        messageEl.textContent = message;
+
+        // 显示Toast
+        toast.classList.remove('translate-x-full', 'opacity-0');
+
+        // 3秒后隐藏
+        setTimeout(() => {
+            toast.classList.add('translate-x-full', 'opacity-0');
+        }, 3000);
+    }
+
+    document.getElementById('uploadForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const videoFile = document.getElementById('videoFile').files[0];
+        const itemId = document.getElementById('itemId').value;
+        const description = document.getElementById('description').value;
+
+        if (!videoFile || !itemId) {
+            showToast('请选择视频文件和关联商品', 'error');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('video_file', videoFile);
+        formData.append('item_id', itemId);
+        formData.append('description', description);
+        formData.append('platform', 'web');
+        formData.append('source', 'upload');
+
+        const progressBar = document.querySelector('#uploadProgress div');
+        const progressContainer = document.getElementById('uploadProgress');
+        progressContainer.classList.remove('hidden');
+
+        try {
+            const response = await fetch('/api/v1/video-materials/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error('上传失败');
+            }
+
+            const result = await response.json();
+            if (result.success) {
+                showToast('上传成功');
+                closeUploadModal();
+                window.location.reload(); // 刷新页面显示新上传的视频
+            } else {
+                showToast(result.message || '上传失败', 'error');
+            }
+        } catch (error) {
+            console.error('上传失败:', error);
+            showToast('上传失败: ' + error.message, 'error');
+        } finally {
+            progressContainer.classList.add('hidden');
+        }
+    });
 </script>
 {% endblock %}
