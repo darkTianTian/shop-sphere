@@ -64,6 +64,11 @@ class UploadService:
             file_url = ""
             oss_object_key = ""
             
+            #如果是测试环境，prefix前缀添加test
+            self.logger.info(f"SERVER_ENVIRONMENT: {os.getenv('SERVER_ENVIRONMENT')}")
+            if os.getenv("SERVER_ENVIRONMENT") == "LOCAL":
+                prefix = "test/" + prefix
+
             if self.oss_service.is_available():
                 # 上传到OSS
                 success, result, public_url = self.oss_service.upload_temp_file(
