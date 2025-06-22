@@ -11,6 +11,7 @@ from sqlmodel import Session, select, func
 from zoneinfo import ZoneInfo
 from app.settings import load_settings
 import math
+import pytz
 
 from app.auth.config import current_superuser, fastapi_users
 from app.auth.decorators import require_admin, require_superuser, require_admin_or_superuser
@@ -47,6 +48,18 @@ if "datetimeformat" not in templates.env.filters:
 
     templates.env.filters["datetimeformat"] = _dt_filter
 
+def format_datetime_local(timestamp):
+    """将时间戳转换为datetime-local格式"""
+    if not timestamp:
+        return ''
+    # 转换为UTC+8时区
+    tz = pytz.timezone('Asia/Shanghai')
+    dt = datetime.fromtimestamp(timestamp / 1000, tz=pytz.UTC)
+    dt = dt.astimezone(tz)
+    return dt.strftime('%Y-%m-%dT%H:%M')
+
+# 注册datetime-local格式化过滤器
+templates.env.filters["format_datetime_local"] = format_datetime_local
 
 @router.get("/login", response_class=HTMLResponse)
 async def admin_login(request: Request):

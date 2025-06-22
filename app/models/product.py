@@ -550,10 +550,9 @@ class ArticleStatus(str, Enum):
             return "未知状态"
 
 
-class ProductArticle(SQLModel, table=True):
+class ProductArticle(BaseModel, table=True):
     __tablename__ = "product_article"
     """商品文章模型"""
-    id: Optional[int] = Field(default=None, primary_key=True)
     item_id: str = Field(index=True, description="商品ID")
     sku_id: str = Field(index=True, description="SKU ID")
     title: str = Field(description="文章标题")
@@ -567,8 +566,8 @@ class ProductArticle(SQLModel, table=True):
         default=ArticleStatus.DRAFT,
         description="状态"
     )
-    create_at: int = Field(default_factory=lambda: int(time.time()*1000), sa_type=sa.BigInteger)
-    update_at: int = Field(default_factory=lambda: int(time.time()*1000), sa_type=sa.BigInteger)
+    pre_publish_time: int = Field(default=0, sa_type=sa.BigInteger, description="预发布时间")
+    publish_time: int = Field(default=0, sa_type=sa.BigInteger, description="发布时间")
 
 
 class Tag(SQLModel, table=True):

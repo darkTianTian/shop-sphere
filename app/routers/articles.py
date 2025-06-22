@@ -100,6 +100,13 @@ async def edit_article(article_id: int, request: Request, current_user: dict = D
         
         article.tags = form_data.get("tags", article.tags)
         
+        # 处理预发布时间
+        try:
+            pre_publish_time = int(form_data.get("pre_publish_time", "0"))
+            article.pre_publish_time = pre_publish_time
+        except ValueError:
+            article.pre_publish_time = 0
+        
         status_str = form_data.get("status")
         if status_str:
             # 验证状态是否有效且不是published

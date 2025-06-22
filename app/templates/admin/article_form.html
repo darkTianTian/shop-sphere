@@ -41,6 +41,34 @@
             </div>
 
             <div>
+                <label for="pre_publish_time"
+                    class="block text-sm font-medium text-gray-700 group relative inline-flex items-center">
+                    预发布时间
+                    <svg class="ml-1 h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                        fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    <div
+                        class="absolute hidden group-hover:block bg-black bg-opacity-75 text-white text-xs normal-case rounded-lg p-2 left-0 top-6 w-64 z-10 whitespace-normal leading-5">
+                        时区为北京时区，不设置该字段将不会发布，设置早于当前时间会立即发布，实际发布时间可能略有延迟。<br>
+                        留空表示不设置预发布时间
+                        <div class="absolute -top-1 left-4 w-3 h-3 bg-black bg-opacity-75 transform rotate-45"></div>
+                    </div>
+                </label>
+                <div class="mt-1 relative">
+                    <div class="relative flex items-center">
+                        <input type="datetime-local" id="pre_publish_time" name="pre_publish_time"
+                            class="appearance-none block w-full px-3 py-2 pr-20 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm cursor-pointer"
+                            value="{{ article.pre_publish_time|format_datetime_local if article.pre_publish_time else '' }}"
+                            style="min-height: 38px;">
+                        <span class="absolute right-3 text-gray-500 sm:text-sm pointer-events-none">UTC+08</span>
+                    </div>
+                </div>
+            </div>
+
+            <div>
                 <label for="status"
                     class="block text-sm font-medium text-gray-700 group relative inline-flex items-center">
                     状态
@@ -98,7 +126,17 @@
                 alert('内容长度不能超过1000个字符');
                 return;
             }
+
+            // 处理预发布时间
+            const prePublishTime = form.querySelector('#pre_publish_time').value;
             const formData = new FormData(form);
+            if (prePublishTime) {
+                // 转换为时间戳
+                formData.set('pre_publish_time', datetimeLocalToTimestamp(prePublishTime));
+            } else {
+                formData.set('pre_publish_time', '0');
+            }
+
             const response = await fetch(form.action, {
                 method: 'POST',
                 body: formData,
@@ -161,5 +199,34 @@
             tagInput.value = '';
         }
     });
+
+    // 时间处理函数
+    function timestampToDatetimeLocal(timestamp) {
+        if (!timestamp) return '';
+        const date = new Date(timestamp);
+        // 转换为本地时区
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+
+    function datetimeLocalToTimestamp(datetime) {
+        if (!datetime) return 0;
+        const date = new Date(datetime);
+        return date.getTime();
+    }
+
+    // 初始化预发布时间
+    const prePublishTimeInput = document.getElementById('pre_publish_time');
+    if (prePublishTimeInput) {
+        // 如果已有时间戳，转换为datetime-local格式
+        const timestamp = parseInt("{{ article.pre_publish_time or 0 }}");
+        if (timestamp > 0) {
+            prePublishTimeInput.value = timestampToDatetimeLocal(timestamp);
+        }
+    }
 </script>
 {% endblock %}
