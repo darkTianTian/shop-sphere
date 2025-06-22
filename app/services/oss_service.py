@@ -19,26 +19,37 @@ class OSSService:
         if not self.config.is_configured():
             self.logger.warning("OSS配置不完整，将使用本地存储")
             self.bucket = None
+            self.internal_bucket = None
         else:
             # 初始化OSS客户端
             auth = oss2.Auth(self.config.ACCESS_KEY_ID, self.config.ACCESS_KEY_SECRET)
-            # 使用内部endpoint
-            endpoint = self.config.get_internal_endpoint()
-            self.logger.info(f"使用OSS endpoint: {endpoint}")
             
+            # 使用公网endpoint用于签名URL
+            endpoint = self.config.ENDPOINT
+            self.logger.info(f"使用OSS公网endpoint: {endpoint}")
             self.bucket = oss2.Bucket(auth, endpoint, self.config.BUCKET_NAME)
-            # 配置重试
-            self.bucket.enable_crc = False  # 禁用CRC校验以提高性能
-            self.bucket.connect_timeout = 20  # 连接超时时间（秒）
-            self.bucket.read_timeout = 30  # 读取超时时间（秒）
-            # 设置重试策略
-            self.bucket.max_retries = 3  # 最大重试次数
-            self.bucket.retry_delay = 1  # 初始重试延迟（秒）
             
+            # 使用内网endpoint用于上传（如果在阿里云ECS上）
+            if os.getenv("SERVER_ENVIRONMENT") == "PROD":
+                internal_endpoint = endpoint.replace(".aliyuncs.com", "-internal.aliyuncs.com")
+                self.logger.info(f"使用OSS内网endpoint: {internal_endpoint}")
+                self.internal_bucket = oss2.Bucket(auth, internal_endpoint, self.config.BUCKET_NAME)
+            else:
+                self.internal_bucket = self.bucket
+            
+            # 配置重试
+            for b in [self.bucket, self.internal_bucket]:
+                if b:
+                    b.enable_crc = False  # 禁用CRC校验以提高性能
+                    b.connect_timeout = 20  # 连接超时时间（秒）
+                    b.read_timeout = 30  # 读取超时时间（秒）
+                    # 设置重试策略
+                    b.max_retries = 3  # 最大重试次数
+                    b.retry_delay = 1  # 初始重试延迟（秒）
     
     def is_available(self) -> bool:
         """检查OSS服务是否可用"""
-        return self.bucket is not None
+        return self.bucket is not None and self.internal_bucket is not None
     
     def calculate_file_hash(self, file_content: bytes) -> str:
         """
@@ -115,11 +126,12 @@ class OSSService:
                 headers['x-oss-meta-hash'] = file_hash  # 将哈希值存储在元数据中
             
             # 上传文件（带重试）
-            max_retries = 2
+            max_retries = 3
             retry_count = 0
             while retry_count < max_retries:
                 try:
-                    result = self.bucket.put_object(object_key, file_content, headers=headers)
+                    # 使用内网bucket上传
+                    result = self.internal_bucket.put_object(object_key, file_content, headers=headers)
                     self.logger.info(f"status code: {result.status}, request_id: {result.request_id}")
                     
                     if result.status == 200:
@@ -136,7 +148,7 @@ class OSSService:
                     retry_count += 1
                     if retry_count < max_retries:
                         # 指数退避，但设置最大延迟
-                        delay = min(self.bucket.retry_delay * (2 ** retry_count), 30)
+                        delay = min(self.internal_bucket.retry_delay * (2 ** retry_count), 30)
                         self.logger.info(f"等待 {delay} 秒后重试...")
                         time.sleep(delay)
                     continue
