@@ -48,7 +48,11 @@ class VideoMaterialUploadResponse(BaseModel):
 
 class VideoStatusUpdate(BaseModel):
     """视频状态更新模型"""
-    is_enabled: bool
+    is_enabled: bool  # 期望接收 is_enabled 字段
+
+class VideoMaterialStatusUpdate(BaseModel):
+    """视频素材状态更新模型"""
+    status: str
 
 # ------------------ 视频管理页面 ------------------
 
@@ -296,12 +300,12 @@ async def get_video_materials_by_item(item_id: str, current_user: dict = Depends
         )
 
 @router.put("/{video_id}/status", response_model=dict)
-async def update_video_status(
+async def update_video_material_status(
     video_id: int, 
-    status_update: VideoStatusUpdate,
+    status_update: VideoMaterialStatusUpdate,
     current_user: dict = Depends(require_admin())
 ):
-    """更新视频状态"""
+    """更新视频素材状态"""
     try:
         with Session(engine) as session:
             video = session.get(VideoMaterial, video_id)

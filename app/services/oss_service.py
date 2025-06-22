@@ -115,7 +115,7 @@ class OSSService:
                 headers['x-oss-meta-hash'] = file_hash  # 将哈希值存储在元数据中
             
             # 上传文件（带重试）
-            max_retries = 3
+            max_retries = 2
             retry_count = 0
             while retry_count < max_retries:
                 try:
