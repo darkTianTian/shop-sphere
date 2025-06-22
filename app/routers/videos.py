@@ -108,19 +108,16 @@ async def play_video(video_id: int, current_user: dict = Depends(require_admin()
 
 # ------------------ 视频上传和管理API ------------------
 
-@router.post("/upload", response_model=VideoMaterialUploadResponse)
-async def upload_video_material(
-    video_file: UploadFile = File(..., description="视频文件"),
-    item_id: str = Form(..., description="商品ID"),
-    sku_id: str = Form(None, description="SKU ID，如果不提供则使用item_id"),
-    platform: str = Form("web", description="平台"),
-    author_id: str = Form("", description="作者ID"),
-    owner_id: str = Form("", description="所有者ID"),
-    source: str = Form("upload", description="来源"),
-    current_user: dict = Depends(require_admin())
-):
-    """上传视频素材文件并提取元数据保存到数据库"""
+async def check_video_file(video_file: UploadFile) -> None:
+    """
+    检查视频文件的类型和大小
     
+    Args:
+        video_file: 上传的视频文件
+        
+    Raises:
+        HTTPException: 当文件类型不正确或大小超限时抛出
+    """
     # 验证文件类型
     if not video_file.content_type or not video_file.content_type.startswith('video/'):
         raise HTTPException(
@@ -129,7 +126,7 @@ async def upload_video_material(
         )
 
     # 检查文件大小
-    MAX_FILE_SIZE = 500 * 1024 * 1024  # 500MB in bytes
+    MAX_FILE_SIZE = 200 * 1024 * 1024  # 500MB in bytes
     try:
         size = 0
         while chunk := await video_file.read(8192):  # 8KB chunks
@@ -149,6 +146,22 @@ async def upload_video_material(
                 detail="检查文件大小时出错"
             )
         raise e
+
+@router.post("/upload", response_model=VideoMaterialUploadResponse)
+async def upload_video_material(
+    video_file: UploadFile = File(..., description="视频文件"),
+    item_id: str = Form(..., description="商品ID"),
+    sku_id: str = Form(None, description="SKU ID，如果不提供则使用item_id"),
+    platform: str = Form("web", description="平台"),
+    author_id: str = Form("", description="作者ID"),
+    owner_id: str = Form("", description="所有者ID"),
+    source: str = Form("upload", description="来源"),
+    current_user: dict = Depends(require_admin())
+):
+    """上传视频素材文件并提取元数据保存到数据库"""
+    
+    # 检查视频文件
+    await check_video_file(video_file)
     
     # 如果没有提供sku_id，使用item_id
     if not sku_id:
@@ -264,6 +277,7 @@ async def upload_video_material(
                 os.unlink(temp_file_path)
             except Exception as e:
                 logger.warning(f"清理临时文件失败: {str(e)}")
+                
 
 @router.get("/api/v1/video-materials/{video_material_id}")
 async def get_video_material(video_material_id: int, current_user: dict = Depends(require_admin())):
@@ -454,30 +468,7 @@ async def upload_published_video(
     current_user: dict = Depends(require_admin())
 ):
     """上传视频并存到 Video 表（待发布）"""
-    if not video_file.content_type or not video_file.content_type.startswith("video/"):
-        raise HTTPException(400, "请上传视频文件")
-
-    # 检查文件大小
-    MAX_FILE_SIZE = 500 * 1024 * 1024  # 500MB in bytes
-    try:
-        size = 0
-        while chunk := await video_file.read(8192):  # 8KB chunks
-            size += len(chunk)
-            if size > MAX_FILE_SIZE:
-                raise HTTPException(
-                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                    detail=f"文件大小超过限制（最大500MB）"
-                )
-        # 重置文件指针
-        await video_file.seek(0)
-    except Exception as e:
-        if not isinstance(e, HTTPException):
-            logger.error(f"检查文件大小时出错: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="检查文件大小时出错"
-            )
-        raise e
+    await check_video_file(video_file)
 
     temp_path = None
     try:
