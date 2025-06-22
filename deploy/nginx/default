@@ -52,5 +52,5 @@ server {
 
     # 日志配置
     access_log /var/log/nginx/access.log;
-    error_log /var/log/nginx/error.log debug;  # 设置为 debug 级别以获取更多信息
+    error_log /var/log/nginx/error.log notice;
 } 

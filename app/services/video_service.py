@@ -144,7 +144,7 @@ class VideoService:
                               file_extension: str = "", oss_object_key: str = "",
                               file_size: int = 0, platform: str = "web", 
                               author_id: str = "", owner_id: str = "", 
-                              source: str = "upload", file_hash: str = "") -> VideoMaterial:
+                              source: str = "upload", file_hash: str = "", name: str = "") -> VideoMaterial:
         """
         将 ffmpeg 元数据转换为 VideoMaterial 模型
         
@@ -233,7 +233,8 @@ class VideoService:
             owner_id=owner_id,
             source=source,
             oss_object_key=oss_object_key,
-            file_size=file_size
+            file_size=file_size,
+            name=name
         )
         
         return video_material
@@ -243,7 +244,7 @@ class VideoService:
                               file_extension: str = "", oss_object_key: str = "",
                               file_size: int = 0, platform: str = "web", 
                               author_id: str = "", owner_id: str = "", 
-                              source: str = "upload", file_hash: str = "") -> VideoMaterial:
+                              source: str = "upload", file_hash: str = "", name: str = "") -> VideoMaterial:
         """
         将 ffmpeg 元数据转换为 VideoMaterial 模型
         
@@ -333,7 +334,8 @@ class VideoService:
             owner_id=owner_id,
             source=source,
             oss_object_key=oss_object_key,
-            file_size=file_size
+            file_size=file_size,
+            name=name
         )
         
         return video_material

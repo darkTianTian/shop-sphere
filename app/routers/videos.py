@@ -12,6 +12,7 @@ from sqlmodel import Session, select, func
 
 from app.services.video_service import VideoService
 from app.services.oss_service import OSSService
+from app.services.upload_service import UploadService
 from app.auth.decorators import require_admin
 from app.internal.db import engine
 from app.models.video import VideoMaterial, VideoStatus, Video
@@ -29,9 +30,10 @@ logger = logging.getLogger(__name__)
 # 创建路由器
 router = APIRouter(prefix="/admin/videos", tags=["videos"])
 
-# 视频素材服务实例
+# 服务实例
 video_service = VideoService(logger=logger)
 oss_service = OSSService(logger=logger)
+upload_service = UploadService(oss_service=oss_service, video_service=video_service, logger=logger)
 
 templates: Jinja2Templates = shared_templates
 
@@ -157,104 +159,25 @@ async def upload_video_material(
     current_user: dict = Depends(require_admin())
 ):
     """上传视频素材文件并提取元数据保存到数据库"""
-    
-    # 检查视频文件
-    await check_video_file(video_file)
-
-    # 获取文件扩展名
-    file_extension = os.path.splitext(video_file.filename)[1].lower()
-    
-    temp_file_path = None
     try:
-        # 创建临时文件保存上传的视频
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
-            temp_file_path = temp_file.name
-            # 读取并写入文件内容
-            content = await video_file.read()
-            temp_file.write(content)
-            temp_file.flush()
-        
-        # 计算文件哈希
-        logger.info(f"计算文件哈希: {video_file.filename}")
-        file_hash = oss_service.calculate_file_hash(content)
-        logger.info(f"文件哈希: {file_hash}")
-        file_size = len(content)
-        
-        # 上传文件到OSS
-        file_url = ""
-        oss_object_key = ""
-        
-        if oss_service.is_available():
-            # 上传到OSS
-            success, result, public_url = oss_service.upload_temp_file(
-                temp_file_path, 
-                video_file.filename, 
-                video_file.content_type,
-                prefix="video/material/",
-                file_hash=file_hash
-            )
-            
-            if success:
-                oss_object_key = result
-                file_url = public_url
-                logger.info(f"文件上传到OSS成功: {video_file.filename} -> {oss_object_key}")
-            else:
-                logger.error(f"OSS上传失败: {result}")
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"文件上传失败: {result}"
-                )
-        else:
-            # 降级到本地存储
-            file_url = f"/uploads/videos/{video_file.filename}"
-            logger.error("OSS不可用，请检查配置")
-        
-        # 处理视频文件
-        video_material = video_service.process_video_material_file(
-            video_file_path=temp_file_path,
+        # 使用通用上传服务处理视频上传
+        video_info, file_url, oss_object_key, file_size = await upload_service.process_video_upload(
+            video_file=video_file,
             item_id=item_id,
-            sku_id="",
-            file_url=file_url,
-            file_extension=file_extension,
-            oss_object_key=oss_object_key,
-            file_size=file_size,
+            sku_id=sku_id or "",
             platform=platform,
             source=source,
-            file_hash=file_hash
+            prefix="video/material/",
+            process_func="process_video_material_file"
         )
         
-        # 构建响应数据
-        video_material_info = {
-            "id": video_material.id,
-            "file_extension": video_material.file_extension,
-            "url": video_material.url,
-            "file_hash": video_material.file_hash,
-            "oss_object_key": video_material.oss_object_key,
-            "file_size": video_material.file_size,
-            "item_id": video_material.item_id,
-            "sku_id": video_material.sku_id,
-            "status": video_material.status,
-            "width": video_material.width,
-            "height": video_material.height,
-            "duration": video_material.duration,
-            "format": video_material.format,
-            "bitrate": video_material.bitrate,
-            "frame_rate": video_material.frame_rate,
-            "audio_format": video_material.audio_format,
-            "audio_bitrate": video_material.audio_bitrate,
-            "audio_channels": video_material.audio_channels,
-            "platform": video_material.platform,
-            "source": video_material.source,
-            "is_oss_stored": bool(video_material.oss_object_key)
-        }
-        
-        logger.info(f"视频素材上传成功: {video_file.filename}, 数据库ID: {video_material.id}")
+        logger.info(f"视频素材上传成功: {video_file.filename}, 数据库ID: {video_info['id']}")
         
         return VideoMaterialUploadResponse(
             success=True,
             message="视频素材上传并处理成功",
-            video_material_id=video_material.id,
-            video_material_info=video_material_info
+            video_material_id=video_info['id'],
+            video_material_info=video_info
         )
         
     except Exception as e:
@@ -263,63 +186,65 @@ async def upload_video_material(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"视频素材处理失败: {str(e)}"
         )
-    
-    finally:
-        # 清理临时文件
-        if temp_file_path and os.path.exists(temp_file_path):
-            try:
-                os.unlink(temp_file_path)
-            except Exception as e:
-                logger.warning(f"清理临时文件失败: {str(e)}")
-                
 
-@router.get("/api/v1/video-materials/{video_material_id}")
-async def get_video_material(video_material_id: int, current_user: dict = Depends(require_admin())):
-    """根据ID获取视频素材信息"""
+@router.get("/api/v1/videos/{video_identifier}")
+async def get_video(
+    video_identifier: str, 
+    current_user: dict = Depends(require_admin())
+):
+    """根据ID或ULID获取视频信息"""
     try:
         with Session(engine) as session:
-            video_material = session.get(VideoMaterial, video_material_id)
-            if not video_material:
+            # 尝试作为ULID查询
+            video = session.exec(
+                select(VideoMaterial).where(VideoMaterial.ulid == video_identifier)
+            ).first()
+            
+            # 如果找不到，尝试作为ID查询
+            if not video and video_identifier.isdigit():
+                video = session.get(VideoMaterial, int(video_identifier))
+            
+            if not video:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="视频素材不存在"
+                    detail="视频不存在"
                 )
             
             return {
                 "success": True,
                 "data": {
-                    "id": video_material.id,
-                    "name": video_material.name,
-                    "description": video_material.description,
-                    "file_extension": video_material.file_extension,
-                    "uuid": video_material.uuid,
-                    "url": video_material.url,
-                    "item_id": video_material.item_id,
-                    "sku_id": video_material.sku_id,
-                    "status": video_material.status,
-                    "width": video_material.width,
-                    "height": video_material.height,
-                    "duration": video_material.duration,
-                    "format": video_material.format,
-                    "bitrate": video_material.bitrate,
-                    "frame_rate": video_material.frame_rate,
-                    "audio_format": video_material.audio_format,
-                    "audio_bitrate": video_material.audio_bitrate,
-                    "audio_channels": video_material.audio_channels,
-                    "platform": video_material.platform,
-                    "source": video_material.source,
-                    "create_time": video_material.create_time,
-                    "update_time": video_material.update_time
+                    "id": video.id,
+                    "ulid": video.ulid,
+                    "name": video.name,
+                    "description": video.description,
+                    "file_extension": video.file_extension,
+                    "url": video.url,
+                    "item_id": video.item_id,
+                    "sku_id": video.sku_id,
+                    "status": video.status,
+                    "width": video.width,
+                    "height": video.height,
+                    "duration": video.duration,
+                    "format": video.format,
+                    "bitrate": video.bitrate,
+                    "frame_rate": video.frame_rate,
+                    "audio_format": video.audio_format,
+                    "audio_bitrate": video.audio_bitrate,
+                    "audio_channels": video.audio_channels,
+                    "platform": video.platform,
+                    "source": video.source,
+                    "create_time": video.create_at,
+                    "update_time": video.update_at
                 }
             }
             
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"获取视频素材信息失败: {str(e)}")
+        logger.error(f"获取视频信息失败: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取视频素材信息失败: {str(e)}"
+            detail=f"获取视频信息失败: {str(e)}"
         )
 
 @router.get("/api/v1/video-materials/item/{item_id}")
@@ -461,74 +386,24 @@ async def upload_published_video(
     current_user: dict = Depends(require_admin())
 ):
     """上传视频并存到 Video 表（待发布）"""
-
-    # 检查视频文件
-    await check_video_file(video_file)
-    file_extension = os.path.splitext(video_file.filename)[1].lower()
-
-    temp_file_path = None
     try:
-        # 保存到临时文件
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
-            temp_file_path = temp_file.name
-            content = await video_file.read()
-            temp_file.write(content)
-            temp_file.flush()
-
-        file_hash = oss_service.calculate_file_hash(content)
-        file_size = len(content)
-
-        # 上传到 OSS
-        file_url = ""
-        oss_object_key = ""
-        if oss_service.is_available():
-            success, result, public_url = oss_service.upload_temp_file(
-                temp_file_path, 
-                video_file.filename,
-                video_file.content_type,
-                prefix="video/publish/",
-                file_hash=file_hash
-            )
-            
-            if success:
-                oss_object_key = result
-                file_url = public_url
-                logger.info(f"文件上传到OSS成功: {video_file.filename} -> {oss_object_key}")
-            else:
-                logger.error(f"OSS上传失败: {result}")
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"文件上传失败: {result}"
-                )
-        else:
-            logger.error("OSS不可用，请检查配置")
-
-        video = video_service.process_video_file(
-            video_file_path=temp_file_path,
+        # 使用通用上传服务处理视频上传
+        video_info, _, _, _ = await upload_service.process_video_upload(
+            video_file=video_file,
             item_id=item_id,
-            sku_id="",
-            file_url=file_url,
-            file_extension=file_extension,
-            oss_object_key=oss_object_key,
-            file_size=file_size,
             platform=platform,
-            file_hash=file_hash
+            prefix="video/publish/",
+            process_func="process_video_file"
         )
-
-        return {"success": True, "message": "视频上传成功", "video_id": video.id}
+        
+        return {"success": True, "message": "视频上传成功", "video_id": video_info['id']}
+        
     except Exception as e:
         logger.error(f"视频上传失败: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"视频上传失败: {str(e)}"
         )
-    
-    finally:
-        if temp_file_path and os.path.exists(temp_file_path):
-            try:
-                os.unlink(temp_file_path)
-            except Exception as e:
-                logger.warning(f"清理临时文件失败: {str(e)}")
 
 @router.put("/published/{video_id}/status", response_model=dict)
 async def update_published_video_status(

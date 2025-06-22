@@ -34,6 +34,7 @@ class VideoMataData(SQLModel, table=False):
 
 class VideoCommonData(SQLModel, table=False):
     """视频公共数据"""
+    name: str = Field(default="", description="视频名称", sa_type=sa.String(length=128))
     file_hash: str = Field(default="", index=True, description="文件SHA256哈希值", sa_type=sa.String(length=64))
     file_extension: str = Field(description="文件扩展名", sa_type=sa.String(length=10))
     file_size: int = Field(default=0, description="文件大小（字节）")
