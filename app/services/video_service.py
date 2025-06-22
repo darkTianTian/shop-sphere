@@ -2,11 +2,11 @@ import os
 import tempfile
 import logging
 import sys
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 import ffmpeg
 from sqlmodel import Session
 from app.internal.db import engine
-from app.models.video import VideoMaterial
+from app.models.video import VideoMaterial, Video
 
 
 class VideoService:
@@ -208,6 +208,105 @@ class VideoService:
         # 创建 VideoMaterial 实例
         self.logger.info(f"准备创建VideoMaterial实例，file_extension={file_extension}")
         
+        video_material = Video(
+            file_extension=file_extension,
+            url=file_url,
+            file_hash=file_hash,
+            item_id=item_id,
+            sku_id=sku_id,
+            width=width,
+            height=height,
+            duration=duration_ms,
+            format=video_format,
+            bitrate=video_bitrate,
+            frame_rate=frame_rate,
+            colour_primaries=colour_primaries,
+            matrix_coefficients=matrix_coefficients,
+            transfer_characteristics=transfer_characteristics,
+            rotation=rotation,
+            audio_bitrate=audio_bitrate,
+            audio_channels=audio_channels,
+            audio_duration=duration_ms,  # 通常音频和视频时长相同
+            audio_format=audio_format,
+            audio_sampling_rate=audio_sample_rate,
+            platform=platform,
+            owner_id=owner_id,
+            source=source,
+            oss_object_key=oss_object_key,
+            file_size=file_size
+        )
+        
+        return video_material
+    
+    def convert_to_video_material_model(self, metadata: Dict[str, Any], item_id: str, sku_id: str, 
+                              file_url: str,
+                              file_extension: str = "", oss_object_key: str = "",
+                              file_size: int = 0, platform: str = "web", 
+                              author_id: str = "", owner_id: str = "", 
+                              source: str = "upload", file_hash: str = "") -> VideoMaterial:
+        """
+        将 ffmpeg 元数据转换为 VideoMaterial 模型
+        
+        Args:
+            metadata: ffmpeg 提取的元数据
+            item_id: 商品ID
+            sku_id: SKU ID
+            file_url: 文件URL
+            file_extension: 文件扩展名
+            oss_object_key: OSS对象键
+            file_size: 文件大小
+            platform: 平台
+            author_id: 作者ID
+            owner_id: 所有者ID
+            source: 来源
+            file_hash: 文件哈希
+            
+        Returns:
+            VideoMaterial 模型实例
+        """
+        format_info = metadata['format']
+        video_info = metadata['video'] or {}
+        audio_info = metadata['audio'] or {}
+        
+        # 提取基本信息
+        duration_ms = int(float(format_info.get('duration', 0)) * 1000)
+        file_id = os.path.basename(file_url)
+        
+        # 视频信息
+        width = int(video_info.get('width', 0))
+        height = int(video_info.get('height', 0))
+        video_bitrate = int(video_info.get('bit_rate', 0))
+        
+        # 帧率处理
+        frame_rate_str = video_info.get('r_frame_rate', '0/1')
+        if '/' in frame_rate_str:
+            num, den = frame_rate_str.split('/')
+            frame_rate = int(float(num) / float(den)) if float(den) != 0 else 0
+        else:
+            frame_rate = int(float(frame_rate_str))
+        
+        # 音频信息
+        audio_bitrate = int(audio_info.get('bit_rate', 0))
+        audio_channels = int(audio_info.get('channels', 0))
+        audio_sample_rate = int(audio_info.get('sample_rate', 0))
+        
+        # 色彩信息映射
+        colour_primaries = self._map_color_info(video_info.get('color_primaries', ''))
+        matrix_coefficients = self._map_color_info(video_info.get('color_space', ''))
+        transfer_characteristics = self._map_color_info(video_info.get('color_transfer', ''))
+        
+        # 旋转信息
+        rotation = 0
+        if 'tags' in video_info and 'rotate' in video_info['tags']:
+            rotation = int(video_info['tags']['rotate'])
+        
+        # 格式映射
+        video_format = self._map_video_format(video_info.get('codec_name', 'unknown'))
+        audio_format = self._map_audio_format(audio_info.get('codec_name', 'unknown'))
+        
+        # 创建 VideoMaterial 实例
+        self.logger.info(f"准备创建VideoMaterial实例，file_extension={file_extension}")
+        
         video_material = VideoMaterial(
             file_extension=file_extension,
             url=file_url,
@@ -239,28 +338,28 @@ class VideoService:
         
         return video_material
     
-    def save_video_to_db(self, video_material: VideoMaterial) -> VideoMaterial:
+    def save_video_to_db(self, video_model: Union[VideoMaterial, Video]) -> Union[VideoMaterial, Video]:
         """
-        保存视频素材信息到数据库
+        保存视频信息到数据库
         
         Args:
-            video_material: VideoMaterial 模型实例
+            video_model: VideoMaterial 或 Video 模型实例
             
         Returns:
-            保存后的 VideoMaterial 实例
+            保存后的模型实例
         """
         try:
             with Session(engine) as session:
-                session.add(video_material)
+                session.add(video_model)
                 session.commit()
-                session.refresh(video_material)
-                self.logger.info(f"视频素材信息已保存到数据库: {video_material.id}")
-                return video_material
+                session.refresh(video_model)
+                self.logger.info(f"视频信息已保存到数据库: {video_model.__class__.__name__}.id={video_model.id}")
+                return video_model
         except Exception as e:
-            self.logger.error(f"保存视频素材信息到数据库失败: {str(e)}")
+            self.logger.error(f"保存视频信息到数据库失败: {str(e)}")
             raise
     
-    def process_video_file(self, video_file_path: str, item_id: str, sku_id: str, 
+    def process_video_material_file(self, video_file_path: str, item_id: str, sku_id: str, 
                           file_url: str, **kwargs) -> VideoMaterial:
         """
         处理视频文件：提取元数据并保存到数据库
@@ -279,7 +378,7 @@ class VideoService:
         metadata = self.extract_video_metadata(video_file_path)
         
         # 转换为 VideoMaterial 模型
-        video_material = self.convert_to_video_model(
+        video_material = self.convert_to_video_material_model(
             metadata=metadata,
             item_id=item_id,
             sku_id=sku_id,
@@ -289,3 +388,19 @@ class VideoService:
         
         # 保存到数据库
         return self.save_video_to_db(video_material) 
+    
+    def process_video_file(self, video_file_path: str, item_id: str, sku_id: str, 
+                          file_url: str, **kwargs) -> VideoMaterial:
+        """
+        处理视频文件：提取元数据并保存到数据库
+        """
+        metadata = self.extract_video_metadata(video_file_path)
+
+        video = self.convert_to_video_model(
+            metadata=metadata,
+            item_id=item_id,
+            sku_id=sku_id,
+            file_url=file_url,
+            **kwargs
+        )
+        return self.save_video_to_db(video)
