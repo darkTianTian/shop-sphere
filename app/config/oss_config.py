@@ -12,7 +12,7 @@ class OSSConfig:
     
     # 文件上传配置
     VIDEO_PREFIX: str = "videos/"  # 视频文件在OSS中的前缀路径
-    MAX_FILE_SIZE: int = 500 * 1024 * 1024  # 最大文件大小 500MB
+    MAX_FILE_SIZE: int = 200 * 1024 * 1024  # 最大文件大小 200MB
     
     # 允许的视频格式
     ALLOWED_VIDEO_EXTENSIONS = {'.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.m4v'}
@@ -29,8 +29,6 @@ class OSSConfig:
     
     @classmethod
     def get_internal_endpoint(cls) -> str:
-        """获取OSS内部Endpoint（用于上传）"""
-        # 确保endpoint以https://开头
         if not cls.ENDPOINT.startswith('https://'):
             return f"https://{cls.ENDPOINT.replace('http://', '')}"
         return cls.ENDPOINT

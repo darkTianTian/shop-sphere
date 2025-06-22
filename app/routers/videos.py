@@ -175,7 +175,9 @@ async def upload_video_material(
             temp_file.flush()
         
         # 计算文件哈希
+        logger.info(f"计算文件哈希: {video_file.filename}")
         file_hash = oss_service.calculate_file_hash(content)
+        logger.info(f"文件哈希: {file_hash}")
         file_size = len(content)
         
         # 上传文件到OSS

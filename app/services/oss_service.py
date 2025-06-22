@@ -20,19 +20,32 @@ class OSSService:
             self.logger.warning("OSS配置不完整，将使用本地存储")
             self.bucket = None
         else:
-            # 初始化OSS客户端
-            auth = oss2.Auth(self.config.ACCESS_KEY_ID, self.config.ACCESS_KEY_SECRET)
-            # 使用内部endpoint
-            endpoint = self.config.get_internal_endpoint()
-            self.bucket = oss2.Bucket(auth, endpoint, self.config.BUCKET_NAME)
-            # 配置重试
-            self.bucket.enable_crc = False  # 禁用CRC校验以提高性能
-            # 设置连接超时和读取超时
-            self.bucket.connect_timeout = 30  # 连接超时时间（秒）
-            self.bucket.read_timeout = 30  # 读取超时时间（秒）
-            # 设置重试策略
-            self.bucket.max_retries = 1  # 最大重试次数
-            self.bucket.retry_delay = 2  # 初始重试延迟（秒）
+            try:
+                # 初始化OSS客户端
+                auth = oss2.Auth(self.config.ACCESS_KEY_ID, self.config.ACCESS_KEY_SECRET)
+                # 使用内部endpoint
+                endpoint = self.config.get_internal_endpoint()
+                self.logger.info(f"使用OSS endpoint: {endpoint}")
+                
+                self.bucket = oss2.Bucket(auth, endpoint, self.config.BUCKET_NAME)
+                # 配置重试
+                self.bucket.enable_crc = False  # 禁用CRC校验以提高性能
+                self.bucket.connect_timeout = 20  # 连接超时时间（秒）
+                self.bucket.read_timeout = 30  # 读取超时时间（秒）
+                # 设置重试策略
+                self.bucket.max_retries = 3  # 最大重试次数
+                self.bucket.retry_delay = 1  # 初始重试延迟（秒）
+                
+                # 测试连接
+                try:
+                    self.bucket.get_bucket_info()
+                    self.logger.info("OSS连接测试成功")
+                except Exception as e:
+                    self.logger.error(f"OSS连接测试失败: {str(e)}")
+                    self.bucket = None
+            except Exception as e:
+                self.logger.error(f"初始化OSS客户端失败: {str(e)}")
+                self.bucket = None
     
     def is_available(self) -> bool:
         """检查OSS服务是否可用"""
@@ -129,7 +142,7 @@ class OSSService:
                         self.logger.error(f"文件上传失败: {filename}, 状态码: {result.status}")
                         retry_count += 1
                 except Exception as e:
-                    error_details = getattr(e, 'details', str(e))
+                    error_details = str(e)
                     self.logger.error(f"上传出错 (重试 {retry_count + 1}/{max_retries}): {error_details}")
                     retry_count += 1
                     if retry_count < max_retries:
