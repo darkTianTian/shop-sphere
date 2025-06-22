@@ -113,7 +113,6 @@ async def upload_video_material(
     video_file: UploadFile = File(..., description="视频文件"),
     item_id: str = Form(..., description="商品ID"),
     sku_id: str = Form(None, description="SKU ID，如果不提供则使用item_id"),
-    description: str = Form(None, description="视频素材描述"),
     platform: str = Form("web", description="平台"),
     author_id: str = Form("", description="作者ID"),
     owner_id: str = Form("", description="所有者ID"),
@@ -169,17 +168,22 @@ async def upload_video_material(
             temp_file.write(content)
             temp_file.flush()
         
+        # 计算文件哈希
+        file_hash = oss_service.calculate_file_hash(content)
+        file_size = len(content)
+        
         # 上传文件到OSS
         file_url = ""
         oss_object_key = ""
-        file_size = len(content)
         
         if oss_service.is_available():
             # 上传到OSS
             success, result, public_url = oss_service.upload_temp_file(
                 temp_file_path, 
                 video_file.filename, 
-                video_file.content_type
+                video_file.content_type,
+                prefix="video/material/",
+                file_hash=file_hash
             )
             
             if success:
@@ -201,27 +205,23 @@ async def upload_video_material(
         video_material = video_service.process_video_file(
             video_file_path=temp_file_path,
             item_id=item_id,
-            sku_id=sku_id,
+            sku_id="",
             file_url=file_url,
-            name=video_file.filename,
-            description=description,
             file_extension=file_extension,
             oss_object_key=oss_object_key,
             file_size=file_size,
             platform=platform,
-            author_id=author_id,
             owner_id=owner_id,
-            source=source
+            source=source,
+            file_hash=file_hash
         )
         
         # 构建响应数据
         video_material_info = {
             "id": video_material.id,
-            "name": video_material.name,
-            "description": video_material.description,
             "file_extension": video_material.file_extension,
-            "uuid": video_material.uuid,
             "url": video_material.url,
+            "file_hash": video_material.file_hash,
             "oss_object_key": video_material.oss_object_key,
             "file_size": video_material.file_size,
             "item_id": video_material.item_id,
@@ -497,7 +497,8 @@ async def upload_published_video(
             success, result, public_url = oss_service.upload_temp_file(
                 temp_path, 
                 video_file.filename,
-                video_file.content_type
+                video_file.content_type,
+                prefix="video/"
             )
             
             if success:

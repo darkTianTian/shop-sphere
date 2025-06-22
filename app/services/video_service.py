@@ -140,11 +140,11 @@ class VideoService:
             raise
     
     def convert_to_video_model(self, metadata: Dict[str, Any], item_id: str, sku_id: str, 
-                              file_url: str, name: str, description: str = "", 
+                              file_url: str,
                               file_extension: str = "", oss_object_key: str = "",
                               file_size: int = 0, platform: str = "web", 
                               author_id: str = "", owner_id: str = "", 
-                              source: str = "upload") -> VideoMaterial:
+                              source: str = "upload", file_hash: str = "") -> VideoMaterial:
         """
         将 ffmpeg 元数据转换为 VideoMaterial 模型
         
@@ -153,8 +153,6 @@ class VideoService:
             item_id: 商品ID
             sku_id: SKU ID
             file_url: 文件URL
-            name: 视频素材名称
-            description: 视频素材描述
             file_extension: 文件扩展名
             oss_object_key: OSS对象键
             file_size: 文件大小
@@ -162,6 +160,7 @@ class VideoService:
             author_id: 作者ID
             owner_id: 所有者ID
             source: 来源
+            file_hash: 文件哈希
             
         Returns:
             VideoMaterial 模型实例
@@ -207,17 +206,12 @@ class VideoService:
         audio_format = self._map_audio_format(audio_info.get('codec_name', 'unknown'))
         
         # 创建 VideoMaterial 实例
-        # 处理None值
-        if description is None:
-            description = ""
-            
-        self.logger.info(f"准备创建VideoMaterial实例，参数: name={name}, description={description}, file_extension={file_extension}")
+        self.logger.info(f"准备创建VideoMaterial实例，file_extension={file_extension}")
         
         video_material = VideoMaterial(
-            name=name,
-            description=description,
             file_extension=file_extension,
             url=file_url,
+            file_hash=file_hash,
             item_id=item_id,
             sku_id=sku_id,
             width=width,

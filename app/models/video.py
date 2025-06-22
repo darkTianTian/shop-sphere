@@ -13,7 +13,7 @@ class VideoStatus(str, Enum):
     DELETED = "deleted"
 
 
-class VideoMateData(SQLModel, table=False):
+class VideoMataData(SQLModel, table=False):
     """视频素材元数据"""
     width: int = Field(description="视频宽度")
     height: int = Field(description="视频高度")
@@ -46,7 +46,7 @@ class VideoCommonData(SQLModel, table=False):
     url: str = Field(index=True, description="视频URL")
 
 
-class VideoMaterial(BaseModel, VideoMateData, VideoCommonData, table=True):
+class VideoMaterial(VideoMataData, VideoCommonData, BaseModel, table=True):
     """
     视频素材模型 - 存储原始视频文件的元数据信息
     
@@ -93,7 +93,7 @@ class VideoMaterial(BaseModel, VideoMateData, VideoCommonData, table=True):
     author_id: str = Field(default="", description="原平台作者ID")
 
 
-class Video(BaseModel, VideoMateData, VideoCommonData, table=True):
+class Video(VideoMataData, VideoCommonData, BaseModel, table=True):
     """待发布视频"""
     third_file_id: str = Field(nullable=True, index=True, description="三方平台文件ID")
     cover_file_id: str = Field(nullable=True, description="封面文件ID")

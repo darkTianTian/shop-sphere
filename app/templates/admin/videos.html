@@ -135,9 +135,7 @@
                             <td class="px-6 py-4 whitespace-normal">
                                 <div class="relative inline-block text-left">
                                     <button type="button" onclick="toggleStatusDropdown({{ v.id }})" class="inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-medium focus:outline-none whitespace-nowrap
-                                        {% if v.status == VideoStatus.FINISHED.value or v.status == VideoStatus.USED.value %}bg-green-100 text-green-800 hover:bg-green-200
-                                        {% elif v.status == VideoStatus.REMOVE_WATERMARK.value or v.status == VideoStatus.AUDIO_REPLACE.value %}bg-yellow-100 text-yellow-800 hover:bg-yellow-200
-                                        {% elif v.status == VideoStatus.REMOVE_WATERMARK_FAILED.value or v.status == VideoStatus.AUDIO_REPLACE_FAILED.value %}bg-red-100 text-red-800 hover:bg-red-200
+                                        {% if v.status == VideoStatus.DELETED.value %}bg-red-100 text-red-800 hover:bg-red-200
                                         {% else %}bg-gray-100 text-gray-800 hover:bg-gray-200{% endif %}">
                                         <span>{{ v.status.value if v.status.__class__.__name__=='VideoStatus' else
                                             v.status }}</span>

@@ -27,8 +27,12 @@ class OSSService:
             self.bucket = oss2.Bucket(auth, endpoint, self.config.BUCKET_NAME)
             # 配置重试
             self.bucket.enable_crc = False  # 禁用CRC校验以提高性能
-            self.bucket.connection_timeout = 120  # 连接超时时间（秒）
-            self.bucket.max_retries = 5  # 最大重试次数
+            # 设置连接超时和读取超时
+            self.bucket.connect_timeout = 30  # 连接超时时间（秒）
+            self.bucket.read_timeout = 30  # 读取超时时间（秒）
+            # 设置重试策略
+            self.bucket.max_retries = 1  # 最大重试次数
+            self.bucket.retry_delay = 2  # 初始重试延迟（秒）
     
     def is_available(self) -> bool:
         """检查OSS服务是否可用"""
@@ -71,7 +75,7 @@ class OSSService:
         
         return f"{prefix}{new_filename}"
     
-    def upload_file(self, file_content: bytes, filename: str, content_type: str = None) -> Tuple[bool, str, str]:
+    def upload_file(self, file_content: bytes, filename: str, content_type: str = None, *, prefix: str = None, file_hash: str = None) -> Tuple[bool, str, str]:
         """
         上传文件到OSS
         
@@ -79,6 +83,8 @@ class OSSService:
             file_content: 文件内容（字节）
             filename: 原始文件名
             content_type: 文件MIME类型
+            prefix: 文件路径前缀
+            file_hash: 文件SHA256哈希值，如果不提供则不会存储在元数据中
             
         Returns:
             (是否成功, 错误信息或对象键名, 公网访问URL)
@@ -96,17 +102,15 @@ class OSSService:
             if ext.lower() not in self.config.ALLOWED_VIDEO_EXTENSIONS:
                 return False, f"不支持的文件格式: {ext}", ""
             
-            # 计算文件哈希值
-            file_hash = self.calculate_file_hash(file_content)
-            
             # 生成对象键名
-            object_key = self.generate_object_key(filename, file_hash)
+            object_key = self.generate_object_key(filename, file_hash or "", prefix=prefix)
             
             # 设置上传参数
             headers = {
                 'Content-Type': content_type if content_type else 'application/octet-stream',
-                'x-oss-meta-hash': file_hash  # 将哈希值存储在元数据中
             }
+            if file_hash:
+                headers['x-oss-meta-hash'] = file_hash  # 将哈希值存储在元数据中
             
             # 上传文件（带重试）
             max_retries = 3
@@ -119,25 +123,29 @@ class OSSService:
                     if result.status == 200:
                         # 生成公网访问URL
                         public_url = self.config.get_public_url(object_key)
-                        self.logger.info(f"文件上传成功: {filename} -> {object_key}, hash: {file_hash}")
+                        self.logger.info(f"文件上传成功: {filename} -> {object_key}, hash: {file_hash or 'none'}")
                         return True, object_key, public_url
                     else:
                         self.logger.error(f"文件上传失败: {filename}, 状态码: {result.status}")
                         retry_count += 1
                 except Exception as e:
-                    self.logger.error(f"上传出错 (重试 {retry_count + 1}/{max_retries}): {str(e)}")
+                    error_details = getattr(e, 'details', str(e))
+                    self.logger.error(f"上传出错 (重试 {retry_count + 1}/{max_retries}): {error_details}")
                     retry_count += 1
                     if retry_count < max_retries:
-                        time.sleep(2 ** retry_count)  # 指数退避
+                        # 指数退避，但设置最大延迟
+                        delay = min(self.bucket.retry_delay * (2 ** retry_count), 30)
+                        self.logger.info(f"等待 {delay} 秒后重试...")
+                        time.sleep(delay)
                     continue
             
-            return False, f"上传失败，已重试{max_retries}次", ""
+            return False, f"上传失败（已重试{max_retries}次）: {error_details}", ""
                 
         except Exception as e:
             self.logger.error(f"文件上传异常: {filename}, 错误: {str(e)}")
             return False, f"上传异常: {str(e)}", ""
     
-    def upload_temp_file(self, temp_file_path: str, original_filename: str, content_type: str = None) -> Tuple[bool, str, str]:
+    def upload_temp_file(self, temp_file_path: str, original_filename: str, content_type: str = None, *, prefix: str = None, file_hash: str = None) -> Tuple[bool, str, str]:
         """
         上传临时文件到OSS
         
@@ -145,6 +153,8 @@ class OSSService:
             temp_file_path: 临时文件路径
             original_filename: 原始文件名
             content_type: 文件MIME类型
+            prefix: 文件路径前缀
+            file_hash: 文件SHA256哈希值，如果不提供则不会存储在元数据中
             
         Returns:
             (是否成功, 错误信息或对象键名, 公网访问URL)
@@ -152,7 +162,7 @@ class OSSService:
         try:
             with open(temp_file_path, 'rb') as f:
                 file_content = f.read()
-            return self.upload_file(file_content, original_filename, content_type)
+            return self.upload_file(file_content, original_filename, content_type, prefix=prefix, file_hash=file_hash)
         except Exception as e:
             self.logger.error(f"读取临时文件失败: {temp_file_path}, 错误: {str(e)}")
             return False, f"读取文件失败: {str(e)}", ""
