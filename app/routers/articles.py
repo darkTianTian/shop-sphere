@@ -65,9 +65,18 @@ async def edit_article_form(article_id: int, request: Request, current_user: dic
         article = session.get(ProductArticle, article_id)
         if not article:
             raise HTTPException(status_code=404, detail="文章不存在")
+        
+        # 过滤掉 published 状态
+        available_statuses = [s.value for s in ArticleStatus if s != ArticleStatus.PUBLISHED]
+        
         return templates.TemplateResponse(
             "admin/article_form.html",
-            {"request": request, "user": current_user, "article": article, "statuses": [s.value for s in ArticleStatus]},
+            {
+                "request": request, 
+                "user": current_user, 
+                "article": article, 
+                "statuses": available_statuses
+            }
         )
 
 
@@ -78,18 +87,30 @@ async def edit_article(article_id: int, request: Request, current_user: dict = D
         article = session.get(ProductArticle, article_id)
         if not article:
             raise HTTPException(status_code=404, detail="文章不存在")
+            
         new_title = form_data.get("title", "").strip()
         if new_title and len(new_title) > 20:
             raise HTTPException(status_code=400, detail="标题长度不能超过20个字符")
         article.title = new_title or article.title
+        
         new_content = form_data.get("content", "").strip()
         if new_content and len(new_content) > 1000:
             raise HTTPException(status_code=400, detail="内容长度不能超过1000个字符")
         article.content = new_content or article.content
+        
         article.tags = form_data.get("tags", article.tags)
+        
         status_str = form_data.get("status")
-        if status_str and status_str in [s.value for s in ArticleStatus]:
-            article.status = ArticleStatus(status_str)
+        if status_str:
+            # 验证状态是否有效且不是published
+            if status_str == ArticleStatus.PUBLISHED.value:
+                raise HTTPException(status_code=400, detail="不能直接设置为已发布状态")
+            if status_str in [s.value for s in ArticleStatus if s != ArticleStatus.PUBLISHED]:
+                article.status = ArticleStatus(status_str)
+            else:
+                raise HTTPException(status_code=400, detail="无效的状态值")
+                
         article.update_at = int(datetime.utcnow().timestamp() * 1000)
         session.commit()
+        
     return RedirectResponse(url="/admin/articles", status_code=302) 
