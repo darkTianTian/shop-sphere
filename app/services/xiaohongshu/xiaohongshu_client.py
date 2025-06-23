@@ -211,7 +211,8 @@ class XiaohongshuClient:
         """检查响应是否成功"""
         return response.get("success")
     
-    def _make_request(self, method: str, path: str, api_base_url: str = "", params: Optional[Dict] = None, data: Optional[Dict] = None, headers: Optional[Dict] = None, reponse_format: str = "json", **kwargs) -> Dict[str, Any]:
+    def _make_request(self, method: str, path: str, api_base_url: str = "", params: Optional[Dict] = None, 
+                      data: Optional[Dict] = None, headers: Optional[Dict] = None, reponse_format: str = "json", need_sign: bool = True, **kwargs) -> Dict[str, Any]:
         """发送HTTP请求
         
         Args:
@@ -226,7 +227,8 @@ class XiaohongshuClient:
         Raises:
             requests.RequestException: 请求异常
         """
-        self._prepare_request(method, path, params, data, **kwargs)
+        if need_sign:
+            self._prepare_request(method, path, params, data, **kwargs)
         if headers:
             self.session.headers.update(headers)
         # 添加请求间隔
@@ -246,10 +248,13 @@ class XiaohongshuClient:
         else:
             url = f"{self.config.API_BASE_URL}{path}"
         self.logger.info(f"Making request to: {url} [method: {method}]")
-        self.logger.info(f"Request data: {data}")
+        if data and isinstance(data, bytes):
+            self.logger.info(f"Request data: {data[:100]} bytes")
+        else:
+            self.logger.info(f"Request data: {data}")
         
         # 准备请求数据
-        if data:
+        if data and isinstance(data, dict):
             kwargs['data'] = json.dumps(data, separators=(',', ':'))
         if params:
             kwargs['params'] = params
@@ -265,7 +270,7 @@ class XiaohongshuClient:
         prepped = self.session.prepare_request(req)
         
         # 确保content-type正确设置
-        if data:
+        if data and isinstance(data, dict):
             prepped.headers['Content-Type'] = 'application/json'
         
         # 添加随机延迟
@@ -293,6 +298,7 @@ class XiaohongshuClient:
                         return response_data
                     else:
                         response_data = response.text
+                        return response_data
                     self.logger.debug(f"Response data: {json.dumps(response_data, ensure_ascii=False, indent=2)}")
                     if self.is_success(response_data):
                         return response_data

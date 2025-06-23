@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, Generator, List
 from datetime import datetime
 import pytz
 import xmltodict
@@ -12,7 +12,9 @@ from app.services.xiaohongshu.xiaohongshu_client import XiaohongshuClient, Xiaoh
 from app.models.xiaohongshu import XiaohongshuNoteBuilder
 from app.models.product import ProductArticle, ArticleStatus, Tag
 from app.config.auth_config import AuthConfig
-
+from app.services.oss_service import OSSService
+import xml.etree.ElementTree as ET
+import requests
 
 class NoteService:
     """笔记发送服务"""
@@ -65,25 +67,188 @@ class NoteService:
                                               params=params, headers={"x-cos-security-token": token}, reponse_format="xml")
         self.logger.info(f"初始化上传桶响应: {response}")
         return response.get("InitiateMultipartUploadResult", {}).get("UploadId", "")
+    
+    def _upload_chunk(self, upload_addr: str, token: str, file_id: str, upload_id: str, chunk_stream: Generator[bytes, None, None], file_info: dict) -> List[Dict[str, str]]:
+        """
+        上传分块
+        
+        Args:
+            upload_addr: 上传地址
+            token: 上传token
+            file_id: 文件ID
+            upload_id: 上传ID
+            chunk_stream: 文件块生成器
+            file_info: 文件信息
+            
+        Returns:
+            List[Dict[str, str]]: 每个分片的信息，包含 PartNumber 和 ETag
+        """
+        etags = []
+        try:
+            for part_number, chunk in enumerate(chunk_stream, 1):
+                self.logger.info(f"Uploading part {part_number}/{file_info['total_chunks']}")
+                
+                # 构造分片上传请求参数
+                params = {
+                    "partNumber": part_number,
+                    "uploadId": upload_id
+                }
+                
+                # 获取当前分片的大小
+                chunk_size = len(chunk)
+                
+                # # 发送分片上传请求 这样发送会超时
+                # response = self.client._make_request(
+                #     "PUT",
+                #     f"/{file_id}",
+                #     api_base_url=f"https://{upload_addr}",
+                #     params=params,
+                #     headers={
+                #         "content-type": "application/octet-stream",
+                #         "content-length": str(chunk_size),
+                #         "x-cos-security-token": token,
+                #     },
+                #     data=chunk,
+                #     stream=True,
+                #     need_sign=False
+                # )
+                url = f"https://{upload_addr}/{file_id}"
+                headers = {
+                    "content-type": "application/octet-stream",
+                    "content-length": str(chunk_size),
+                    "x-cos-security-token": token
+                }
 
-    def upload_video_to_xiaohongshu(self, video_data: Video) -> Dict[str, Any]:
+                # 使用requests直接发送二进制数据
+                response = requests.put(
+                    url,
+                    params=params,
+                    headers=headers,
+                    data=chunk,  # 直接发送二进制数据
+                    stream=True  # 使用流式传输
+                )
+                
+                # 获取ETag
+                etag = response.headers.get("ETag")
+                if not etag:
+                    raise Exception(f"Failed to upload part {part_number}, no ETag in response")
+                
+                # 记录分片信息
+                etags.append({
+                    "PartNumber": str(part_number),
+                    "ETag": etag
+                })
+                
+                self.logger.info(f"Successfully uploaded part {part_number}, size: {chunk_size}, ETag: {etag}")
+                
+            return etags
+            
+        except Exception as e:
+            self.logger.error(f"Failed to upload chunks: {str(e)}")
+            raise
+
+    def _upload_confirm(self, upload_addr: str, token: str, file_id: str, upload_id: str, etags: List[Dict[str, str]]) -> Dict[str, Any]:
+        """
+        完成分片上传
+        
+        Args:
+            upload_addr: 上传地址
+            token: 上传token
+            file_id: 文件ID
+            upload_id: 上传ID
+            etags: 分片的ETag列表
+            
+        Returns:
+            Dict[str, Any]: 上传结果
+        """
+        try:
+            # 完成上传
+            complete_xml = self._build_complete_xml(etags)
+            
+            # 使用requests直接发送完成请求
+            url = f"https://{upload_addr}/{file_id}"
+            params = {
+                "uploadId": upload_id
+            }
+            headers = {
+                "content-type": "application/xml",
+                "x-cos-security-token": token
+            }
+            
+            self.logger.info(f"Sending complete request with XML: {complete_xml}")
+            response = requests.post(
+                url,
+                params=params,
+                headers=headers,
+                data=complete_xml.encode('utf-8')  # 确保发送UTF-8编码的字节
+            )
+            
+            if response.status_code != 200:
+                raise Exception(f"Complete upload failed with status {response.status_code}: {response.text}")
+            
+            # 解析响应
+            result = xmltodict.parse(response.text)
+            
+            if "CompleteMultipartUploadResult" not in result:
+                raise Exception(f"Invalid complete response: {response.text}")
+            
+            complete_result = result["CompleteMultipartUploadResult"]
+            return {
+                "file_id": complete_result.get("Key", ""),
+                "etag": complete_result.get("ETag", "")
+            }
+        except Exception as e:
+            self.logger.error(f"Failed to complete upload: {str(e)}")
+            raise
+
+    def upload_video_to_xiaohongshu(self, file_stream: Generator[bytes, None, None], file_info: dict) -> Dict[str, Any]:
         """
         上传视频到小红书
         """
-        # 获取上传许可
-        upload_addr, token, file_id = self._get_upload_permit()
-        if not upload_addr or not token or not file_id:
-            self.logger.error(f"获取上传许可失败: {upload_addr}, {token}, {file_id}")
-            return {}
-        self._init_upload_chunk(upload_addr, token, file_id)
+        try:
+            # 获取上传许可
+            upload_addr, token, file_id = self._get_upload_permit()
+            if not upload_addr or not token or not file_id:
+                self.logger.error(f"获取上传许可失败: {upload_addr}, {token}, {file_id}")
+                raise
+            
+            # 初始化上传分块
+            self._init_upload_chunk(upload_addr, token, file_id)
+            
+            # 初始化上传桶
+            upload_id = self._init_upload_bucket(upload_addr, token, file_id)
+            self.logger.info(f"初始化上传桶成功: {upload_id}")
+            if not upload_id:
+                self.logger.error(f"初始化上传桶失败: {upload_id}")
+                raise
+            
+            # 上传分片
+            etags = self._upload_chunk(upload_addr, token, file_id, upload_id, file_stream, file_info)
+            
+            # 完成上传
+            return self._upload_confirm(upload_addr, token, file_id, upload_id, etags)
+            
+        except Exception as e:
+            self.logger.error(f"Failed to upload video: {str(e)}")
+            raise
+
+    def _build_complete_xml(self, parts: List[Dict[str, str]]) -> str:
+        """构建完成上传的XML请求体"""
+        # 手动构建XML声明，确保格式完全匹配
+        xml_declaration = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         
-        upload_id = self._init_upload_bucket(upload_addr, token, file_id)
-        self.logger.info(f"初始化上传桶成功: {upload_id}")
-        if not upload_id:
-            self.logger.error(f"初始化上传桶失败: {upload_id}")
-            return {}
+        root = ET.Element('CompleteMultipartUpload')
+        for part in sorted(parts, key=lambda x: int(x["PartNumber"])):
+            part_elem = ET.SubElement(root, 'Part')
+            part_number = ET.SubElement(part_elem, 'PartNumber')
+            part_number.text = part["PartNumber"]
+            etag = ET.SubElement(part_elem, 'ETag')
+            etag.text = part["ETag"]
         
-        
+        # 不使用ET的xml_declaration，而是手动拼接
+        body = ET.tostring(root, encoding='UTF-8', xml_declaration=False).decode('utf-8')
+        return xml_declaration + body
+
     def send_note(self, article_data: ProductArticle, goods_id: str, goods_name: str, note_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         发送笔记
@@ -151,8 +316,12 @@ class NoteService:
                 return {}
         
         # 上传视频到小红书
-        self.upload_video_to_xiaohongshu(video)
-        
+        # 这里获取视频文件，从oss下载到本地，注意如果是本地环境，走外网endpoint，如果是prod环境，走内网endpoint
+        oss_service = OSSService(logger=self.logger)
+        file_stream, file_info = oss_service.get_file_stream(video.oss_object_key, chunk_size=3 * 1024 * 1024)
+        self.logger.info(f"文件信息: {file_info}")
+        upload_result = self.upload_video_to_xiaohongshu(file_stream, file_info)
+        video.third_file_id = upload_result.get("file_id", "")
         # 设置视频信息
         builder.set_video_info(video)
         

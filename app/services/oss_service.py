@@ -3,10 +3,11 @@ import uuid
 import logging
 import hashlib
 from datetime import datetime
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Generator
 import oss2
 from app.config.oss_config import OSSConfig
 import time
+import math
 
 
 class OSSService:
@@ -200,4 +201,74 @@ class OSSService:
             return True
         except Exception as e:
             self.logger.error(f"文件删除失败: {object_key}, 错误: {str(e)}")
-            return False 
+            return False
+
+    def get_file_stream(self, oss_object_key: str, chunk_size: int = 5 * 1024 * 1024) -> Tuple[Generator[bytes, None, None], dict]:
+        """
+        获取文件流和文件信息，用于分块上传
+        
+        Args:
+            oss_object_key: OSS对象的键名
+            chunk_size: 分块大小，默认5MB
+            
+        Returns:
+            Tuple[Generator, dict]: (文件流生成器, 文件信息)
+            文件信息包含：
+            {
+                'size': 文件大小,
+                'content_type': 内容类型,
+                'name': 文件名,
+                'total_chunks': 总分块数
+            }
+        """
+        try:
+            # 获取bucket实例
+            bucket = self.internal_bucket if os.getenv("SERVER_ENVIRONMENT") == "PROD" else self.bucket
+            if not bucket:
+                raise Exception("OSS bucket not configured")
+            
+            # 获取文件元信息
+            object_meta = bucket.head_object(oss_object_key)
+            file_size = object_meta.content_length
+            content_type = object_meta.content_type
+            file_name = os.path.basename(oss_object_key)
+            total_chunks = math.ceil(file_size / chunk_size)
+
+            self.logger.info(f"Preparing to stream file: {oss_object_key}")
+            self.logger.info(f"File size: {file_size / 1024 / 1024:.2f}MB, Total chunks: {total_chunks}")
+
+            def chunk_generator() -> Generator[bytes, None, None]:
+                """生成文件块的生成器"""
+                current_position = 0
+                while current_position < file_size:
+                    # 计算当前块的大小
+                    current_chunk_size = min(chunk_size, file_size - current_position)
+                    
+                    # 使用range下载当前块
+                    chunk = bucket.get_object(
+                        oss_object_key,
+                        byte_range=(current_position, current_position + current_chunk_size - 1)
+                    ).read()
+                    
+                    yield chunk
+                    
+                    current_position += current_chunk_size
+                    self.logger.debug(f"Streamed {current_position}/{file_size} bytes ({(current_position/file_size*100):.1f}%)")
+
+            file_info = {
+                'size': file_size,
+                'content_type': content_type,
+                'name': file_name,
+                'total_chunks': total_chunks
+            }
+
+            return chunk_generator(), file_info
+
+        except oss2.exceptions.NoSuchKey:
+            error_msg = f"File not found in OSS: {oss_object_key}"
+            self.logger.error(error_msg)
+            raise Exception(error_msg)
+        except Exception as e:
+            error_msg = f"Failed to get file stream from OSS: {str(e)}"
+            self.logger.error(error_msg)
+            raise 
