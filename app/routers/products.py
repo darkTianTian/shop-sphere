@@ -48,5 +48,6 @@ async def list_products_api(current_user: dict = Depends(require_admin())):
         return [{
             "item_id": p.item_id,
             "item_name": p.item_name,
-            "image_url": p.images[0].get('link') + '?imageView2/2/w/80/format/webp/q/75' if p.images else None
+            "image_url": p.images[0].get('link') + '?imageView2/2/w/80/format/webp/q/75' if p.images else None,
+            "first_sku_id": p.first_sku_id
         } for p in products]

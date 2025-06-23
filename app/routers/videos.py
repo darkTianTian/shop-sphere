@@ -386,6 +386,7 @@ async def list_published_videos(request: Request, page: int = 1, current_user: d
 async def upload_published_video(
     video_file: UploadFile = File(..., description="视频文件"),
     item_id: str = Form(..., description="商品ID"),
+    sku_id: str = Form(None, description="SKU ID"),
     platform: str = Form("xiaohongshu", description="平台"),
     current_user: dict = Depends(require_admin())
 ):
@@ -395,6 +396,7 @@ async def upload_published_video(
         video_info, _, _, _ = await upload_service.process_video_upload(
             video_file=video_file,
             item_id=item_id,
+            sku_id=sku_id,
             platform=platform,
             prefix="video/publish/",
             process_func="process_video_file"

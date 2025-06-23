@@ -264,6 +264,7 @@
                                         </div>
                                     </div>
                                     <input type="hidden" id="itemId" required>
+                                    <input type="hidden" id="skuId">
                                     <div id="productSearchResults"
                                         class="hidden absolute z-10 mt-2 w-full bg-white rounded-md shadow-lg max-h-60 overflow-auto focus:outline-none ring-1 ring-black ring-opacity-5"
                                         style="max-width: 42rem;">
@@ -410,7 +411,68 @@
         document.getElementById('resolution').textContent = '-';
     }
 
-    document.getElementById('uploadForm').addEventListener('submit', async function (e) { e.preventDefault(); const videoFile = document.getElementById('videoFile').files[0]; const itemId = document.getElementById('itemId').value; const description = document.getElementById('description').value; if (!videoFile || !itemId) { showToast('请选择视频文件并填写商品ID', 'error'); return; } const formData = new FormData(); formData.append('video_file', videoFile); formData.append('item_id', itemId); formData.append('description', description); formData.append('platform', 'web'); const progressBar = document.querySelector('#uploadProgress div'); const progressText = document.querySelector('#uploadProgress p'); const progressContainer = document.getElementById('uploadProgress'); progressContainer.classList.remove('hidden'); try { const resp = await axios.post('/admin/videos/publish/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' }, onUploadProgress: (evt) => { const pct = Math.round((evt.loaded * 100) / evt.total); progressBar.style.width = pct + '%'; progressText.textContent = `上传中... ${pct}%`; } }); if (resp.data.success) { progressBar.style.width = '100%'; progressText.textContent = '上传成功！'; showToast('上传成功', 'success'); setTimeout(() => { closeUploadModal(); window.location.reload(); }, 1500); } else { showToast(resp.data.message || '上传失败', 'error'); } } catch (err) { console.error(err); showToast('上传失败', 'error'); } finally { setTimeout(() => { progressContainer.classList.add('hidden'); progressBar.style.width = '0%'; progressText.textContent = '正在上传...'; }, 2000); } });
+    document.getElementById('uploadForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const videoFile = document.getElementById('videoFile').files[0];
+        const itemId = document.getElementById('itemId').value;
+        const skuId = document.getElementById('skuId').value;
+        const description = document.getElementById('description').value;
+
+        if (!videoFile || !itemId) {
+            showToast('请选择视频文件并关联商品', 'error');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('video_file', videoFile);
+        formData.append('item_id', itemId);
+        formData.append('sku_id', skuId);
+        formData.append('description', description);
+
+        try {
+            // 显示上传进度条
+            const progressBar = document.querySelector('#uploadProgress .bg-blue-500');
+            const progressContainer = document.getElementById('uploadProgress');
+            progressContainer.classList.remove('hidden');
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/admin/videos/publish/upload', true);
+
+            // 处理上传进度
+            xhr.upload.onprogress = function (e) {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    progressBar.style.width = percentComplete + '%';
+                }
+            };
+
+            // 处理上传完成
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.success) {
+                        showToast('上传成功', 'success');
+                        setTimeout(() => window.location.reload(), 2000);
+                    } else {
+                        showToast(response.message || '上传失败', 'error');
+                    }
+                } else {
+                    showToast(`上传失败: ${xhr.status}`, 'error');
+                }
+            };
+
+            xhr.send(formData);
+        } catch (err) {
+            console.error('上传失败:', err);
+            showToast('上传失败', 'error');
+        } finally {
+            setTimeout(() => {
+                progressContainer.classList.add('hidden');
+                progressBar.style.width = '0%';
+            }, 2000);
+        }
+    });
 
     document.getElementById('videoFile').addEventListener('change', function (e) {
         const file = e.target.files[0];
@@ -458,7 +520,7 @@
 
         searchResults.innerHTML = filteredProducts.map(product => `
             <div class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-100"
-                onclick="selectProduct('${product.item_id}', '${product.item_name.replace(/'/g, "\\'")}', '${product.image_url || '/static/images/placeholder.png'}')">
+                onclick="selectProduct('${product.item_id}', '${product.item_name.replace(/'/g, "\\'")}', '${product.image_url || '/static/images/placeholder.png'}', '${product.first_sku_id}')">
                 <div class="flex items-center">
                     <img src="${product.image_url || '/static/images/placeholder.png'}" 
                          class="h-10 w-10 flex-shrink-0 rounded object-cover">
@@ -473,8 +535,9 @@
         searchResults.classList.remove('hidden');
     }
 
-    function selectProduct(id, title, imageUrl) {
+    function selectProduct(id, title, imageUrl, skuId) {
         document.getElementById('itemId').value = id;
+        document.getElementById('skuId').value = skuId;
         document.getElementById('selectedProductImage').src = imageUrl;
         document.getElementById('selectedProductName').textContent = title;
         document.getElementById('selectedProductId').textContent = id;
@@ -496,6 +559,7 @@
         document.getElementById('selectedProduct').classList.add('hidden');
         document.getElementById('searchInput').classList.remove('hidden');
         document.getElementById('itemId').value = '';
+        document.getElementById('skuId').value = '';
         document.getElementById('itemIdSearch').value = '';
     }
 

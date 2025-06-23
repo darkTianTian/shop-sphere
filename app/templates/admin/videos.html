@@ -242,15 +242,6 @@
                                                     <span id="selectedProductId" class="truncate"></span>
                                                 </div>
                                             </div>
-                                            <button type="button"
-                                                onclick="event.stopPropagation(); clearSelectedProduct()"
-                                                class="flex-shrink-0 ml-2 p-1 text-gray-400 hover:text-gray-500">
-                                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24"
-                                                    stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                                </svg>
-                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -288,6 +279,7 @@
                                 </div>
                             </div>
                             <input type="hidden" id="itemId" required>
+                            <input type="hidden" id="skuId">
                             <div id="productSearchResults"
                                 class="hidden absolute z-10 mt-2 w-full bg-white rounded-md shadow-lg max-h-60 overflow-auto focus:outline-none ring-1 ring-black ring-opacity-5"
                                 style="max-width: 42rem;">
@@ -425,57 +417,37 @@
     // 显示商品列表的函数
     function showProductList(searchTerm = '') {
         const searchResults = document.getElementById('productSearchResults');
-        if (!searchResults) return;  // 添加检查
+        const filteredProducts = window.productsList.filter(product =>
+            product.item_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            product.item_id.toString().includes(searchTerm)
+        );
 
-        if (!window.productsList || !Array.isArray(window.productsList)) {
-            console.error('商品列表不可用');
-            return;
-        }
-
-        const searchTermLower = (searchTerm || '').toLowerCase();
-        const filteredProducts = window.productsList.filter(product => {
-            if (!product) return false;
-            const itemName = (product.item_name || '').toLowerCase();
-            const itemId = (product.item_id || '').toString().toLowerCase();
-            return itemName.includes(searchTermLower) || itemId.includes(searchTermLower);
-        });
-
-        const productElements = filteredProducts.map(product => {
-            const imageUrl = product.image_url || '/static/images/placeholder.png';
-            return `
-                <div class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-100"
-                    onclick="selectProduct('${product.item_id}', '${(product.item_name || '').replace(/'/g, "\\'")}', '${imageUrl}')">
-                    <div class="flex items-center">
-                        <img src="${imageUrl}" 
-                             class="h-10 w-10 flex-shrink-0 rounded object-cover">
-                        <div class="ml-3 flex-1 truncate">
-                            <div class="text-sm font-medium text-gray-900 truncate">${product.item_name || ''}</div>
-                            <div class="text-sm text-gray-500">ID: ${product.item_id || ''}</div>
-                        </div>
+        searchResults.innerHTML = filteredProducts.map(product => `
+            <div class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-100"
+                onclick="selectProduct('${product.item_id}', '${product.item_name.replace(/'/g, "\\'")}', '${product.image_url || '/static/images/placeholder.png'}', '${product.first_sku_id}')">
+                <div class="flex items-center">
+                    <img src="${product.image_url || '/static/images/placeholder.png'}" 
+                         class="h-10 w-10 flex-shrink-0 rounded object-cover">
+                    <div class="ml-3 flex-1 truncate">
+                        <div class="text-sm font-medium text-gray-900 truncate">${product.item_name}</div>
+                        <div class="text-sm text-gray-500">ID: ${product.item_id}</div>
                     </div>
                 </div>
-            `;
-        });
+            </div>
+        `).join('');
 
-        searchResults.innerHTML = productElements.join('');
         searchResults.classList.remove('hidden');
     }
 
-    function selectProduct(id, title, imageUrl) {
-        const selectedProduct = document.getElementById('selectedProduct');
-        const searchInput = document.getElementById('searchInput');
-        const itemIdInput = document.getElementById('itemId');
-        const searchResults = document.getElementById('productSearchResults');
-
-        if (!selectedProduct || !searchInput || !itemIdInput || !searchResults) return;  // 添加检查
-
-        itemIdInput.value = id;
+    function selectProduct(id, title, imageUrl, skuId) {
+        document.getElementById('itemId').value = id;
+        document.getElementById('skuId').value = skuId;
         document.getElementById('selectedProductImage').src = imageUrl;
         document.getElementById('selectedProductName').textContent = title;
         document.getElementById('selectedProductId').textContent = id;
-        selectedProduct.classList.remove('hidden');
-        searchInput.classList.add('hidden');
-        searchResults.classList.add('hidden');
+        document.getElementById('selectedProduct').classList.remove('hidden');
+        document.getElementById('searchInput').classList.add('hidden');
+        document.getElementById('productSearchResults').classList.add('hidden');
     }
 
     // 显示下拉列表
@@ -586,17 +558,11 @@
     }
 
     function clearSelectedProduct() {
-        const selectedProduct = document.getElementById('selectedProduct');
-        const searchInput = document.getElementById('searchInput');
-        const itemIdInput = document.getElementById('itemId');
-        const itemIdSearch = document.getElementById('itemIdSearch');
-
-        if (!selectedProduct || !searchInput || !itemIdInput || !itemIdSearch) return;  // 添加检查
-
-        selectedProduct.classList.add('hidden');
-        searchInput.classList.remove('hidden');
-        itemIdInput.value = '';
-        itemIdSearch.value = '';
+        document.getElementById('selectedProduct').classList.add('hidden');
+        document.getElementById('searchInput').classList.remove('hidden');
+        document.getElementById('itemId').value = '';
+        document.getElementById('skuId').value = '';
+        document.getElementById('itemIdSearch').value = '';
     }
 
     // 显示Toast提示
@@ -637,6 +603,7 @@
 
         const videoFile = document.getElementById('videoFile').files[0];
         const itemId = document.getElementById('itemId').value;
+        const skuId = document.getElementById('skuId').value;
         const description = document.getElementById('description').value;
 
         if (!videoFile || !itemId) {
@@ -647,6 +614,7 @@
         const formData = new FormData();
         formData.append('video_file', videoFile);
         formData.append('item_id', itemId);
+        formData.append('sku_id', skuId);
         formData.append('description', description);
 
         try {
