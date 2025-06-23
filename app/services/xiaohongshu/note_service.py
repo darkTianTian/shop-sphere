@@ -1,7 +1,8 @@
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from datetime import datetime
 import pytz
+import xmltodict
 import json
 from sqlmodel import select, Session
 from app.internal.db import engine
@@ -30,6 +31,58 @@ class NoteService:
             if tagsInfo := response["data"].get("topic_info_dtos", []):
                 tagInfo = tagsInfo[0]
                 builder.add_hashtag(tagInfo["id"], tagInfo["name"], tagInfo["link"])
+
+    def _get_upload_permit(self) -> Tuple[str, str, str]:
+        """
+        获取上传许可
+        """
+        params = {"biz_name": "spectrum", "scene": "video", "file_count": 1, "version": "1", "source": "web"}
+        response = self.client._make_request("GET", "/api/media/v1/upload/creator/permit", api_base_url="https://creator.xiaohongshu.com", params=params)
+        if upload_permits:=response["data"].get("uploadTempPermits", []):
+            upload_permit = upload_permits[0]
+            self.logger.info(f"上传许可: {upload_permit}")
+            return upload_permit['uploadAddr'], upload_permit['token'], upload_permit['fileIds'][0]
+        else:
+            self.logger.error(f"获取上传许可失败: {response}")
+            return None, None, None
+        
+    def _init_upload_chunk(self, upload_addr: str, token: str, file_id: str) -> Dict[str, Any]:
+        """
+        初始化上传分块
+        """
+        params = {"uploads":"", "prefix": file_id}
+        response = self.client._make_request("GET", "", api_base_url=f"https://{upload_addr}",
+                                              params=params, headers={"x-cos-security-token": token}, reponse_format="xml")
+        self.logger.info(f"初始化上传分块响应: {response}")
+        return response
+    
+    def _init_upload_bucket(self, upload_addr: str, token: str, file_id: str) -> str:
+        """
+        初始化上传桶
+        """
+        params = {"uploads":""}
+        response = self.client._make_request("POST", "/"+file_id, api_base_url=f"https://{upload_addr}",
+                                              params=params, headers={"x-cos-security-token": token}, reponse_format="xml")
+        self.logger.info(f"初始化上传桶响应: {response}")
+        return response.get("InitiateMultipartUploadResult", {}).get("UploadId", "")
+
+    def upload_video_to_xiaohongshu(self, video_data: Video) -> Dict[str, Any]:
+        """
+        上传视频到小红书
+        """
+        # 获取上传许可
+        upload_addr, token, file_id = self._get_upload_permit()
+        if not upload_addr or not token or not file_id:
+            self.logger.error(f"获取上传许可失败: {upload_addr}, {token}, {file_id}")
+            return {}
+        self._init_upload_chunk(upload_addr, token, file_id)
+        
+        upload_id = self._init_upload_bucket(upload_addr, token, file_id)
+        self.logger.info(f"初始化上传桶成功: {upload_id}")
+        if not upload_id:
+            self.logger.error(f"初始化上传桶失败: {upload_id}")
+            return {}
+        
         
     def send_note(self, article_data: ProductArticle, goods_id: str, goods_name: str, note_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
@@ -70,8 +123,6 @@ class NoteService:
         # 设置文章的话题标签
         self.set_topic_tags(article_data, builder)
 
-        #TODO: 这里可以保存标签到数据库
-        
         # 设置商品信息
         extra_info = {
             'goods_id': goods_id,
@@ -99,7 +150,10 @@ class NoteService:
                 self.logger.error(f"没有找到可用视频: {goods_id}")
                 return {}
         
+        # 上传视频到小红书
+        self.upload_video_to_xiaohongshu(video)
         
+        # 设置视频信息
         builder.set_video_info(video)
         
         note_data = builder.build()
@@ -110,7 +164,7 @@ class NoteService:
             self.logger.info("开始发送笔记")
             # response = self.client._make_request("POST", "/web_api/sns/v2/note", api_base_url="https://edith.xiaohongshu.com", data=note_data)
             self.logger.info("笔记发送完成")
-            return response
+            # return response
         except Exception as e:
             self.logger.error(f"发送笔记失败: {str(e)}")
             raise

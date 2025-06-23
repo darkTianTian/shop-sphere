@@ -103,7 +103,7 @@ makefun==1.16.0
     # via fastapi-users
 markupsafe==3.0.2
     # via jinja2
-openai==1.88.0
+openai==1.90.0
     # via -r requirements-base.txt
 oss2==2.19.1
     # via -r requirements-base.txt
@@ -193,3 +193,5 @@ watchfiles==1.1.0
     # via uvicorn
 websockets==15.0.1
     # via uvicorn
+xmltodict==0.14.2
+    # via -r requirements-base.txt

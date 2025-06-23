@@ -5,6 +5,7 @@ import hashlib
 import math
 import random
 import time
+import xmltodict
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
 from ...config.auth_config import AuthConfig
@@ -75,7 +76,13 @@ class XiaohongshuClient:
         """将字典转换为带转义的字符串"""
         return json.dumps(data, ensure_ascii=True, separators=(',', ':'))
     
-    def get_sign(self, timestamp: str, path: str, data: Dict[str, Any]) -> str:
+    def _get_params_str(self, data: Dict) -> str:
+        """将字典转换为带转义的字符串"""
+        if data:
+            return "&".join([f"{k}={v}" for k, v in data.items()])
+        return ""
+    
+    def get_sign(self, method: str, timestamp: str, path: str, params: Optional[Dict] = None, data: Optional[Dict] = None) -> str:
         """生成签名
         
         Args:
@@ -87,9 +94,14 @@ class XiaohongshuClient:
             生成的签名字符串
         """
         # 构造签名字符串
-        data_str = self._dict_to_escaped_str(data)
-        g = 'test'
-        sign_str = f"{timestamp}{g}{path}{data_str}"
+        if method == "GET":
+            data_str = self._get_params_str(params)
+            g = 'test'
+            sign_str = f"{timestamp}{g}{path}?{data_str}"
+        else:
+            data_str = self._dict_to_escaped_str(data)
+            g = 'test'
+            sign_str = f"{timestamp}{g}{path}{data_str}"
         
         # 计算MD5
         b_md5 = hashlib.md5(sign_str.encode()).hexdigest()
@@ -99,9 +111,6 @@ class XiaohongshuClient:
         self.logger.debug(f"Base64 charset: {d}")
         self.logger.debug(f"MD5 hash: {b_md5}")
         self.logger.debug(f"Sign string: {sign_str}")
-        print(f"Base64 charset: {d}")
-        print(f"MD5 hash: {b_md5}")
-        print(f"Sign string: {sign_str}")
         
         # 初始化变量
         e = b_md5
@@ -188,21 +197,21 @@ class XiaohongshuClient:
             pass
         return result
     
-    def set_sign(self, path: str, data: Dict[str, Any]):
+    def set_sign(self, method: str, path: str, params: Optional[Dict] = None, data: Optional[Dict] = None):
         """设置签名"""
         timestamp = str(int(time.time() * 1000))
-        self.session.headers['x-s'] = self.get_sign(timestamp, path, data)
+        self.session.headers['x-s'] = self.get_sign(method, timestamp, path, params, data)
         self.session.headers['x-t'] = timestamp
 
-    def _prepare_request(self, path: str, data: Optional[Dict] = None, **kwargs):
-        self.set_sign(path, data)
+    def _prepare_request(self, method: str, path: str, params: Optional[Dict] = None, data: Optional[Dict] = None, **kwargs):
+        self.set_sign(method, path, params, data)
         self.set_auth(AuthConfig.from_env())
 
     def is_success(self, response: Dict[str, Any]) -> bool:
         """检查响应是否成功"""
         return response.get("success")
     
-    def _make_request(self, method: str, path: str, api_base_url: str = "", data: Optional[Dict] = None, **kwargs) -> Dict[str, Any]:
+    def _make_request(self, method: str, path: str, api_base_url: str = "", params: Optional[Dict] = None, data: Optional[Dict] = None, headers: Optional[Dict] = None, reponse_format: str = "json", **kwargs) -> Dict[str, Any]:
         """发送HTTP请求
         
         Args:
@@ -217,7 +226,9 @@ class XiaohongshuClient:
         Raises:
             requests.RequestException: 请求异常
         """
-        self._prepare_request(path, data, **kwargs)
+        self._prepare_request(method, path, params, data, **kwargs)
+        if headers:
+            self.session.headers.update(headers)
         # 添加请求间隔
         current_time = time.time()
         time_since_last_request = current_time - self.config.LAST_REQUEST_TIME
@@ -240,7 +251,8 @@ class XiaohongshuClient:
         # 准备请求数据
         if data:
             kwargs['data'] = json.dumps(data, separators=(',', ':'))
-        
+        if params:
+            kwargs['params'] = params
         # 创建请求对象
         req = requests.Request(
             method=method,
@@ -257,7 +269,7 @@ class XiaohongshuClient:
             prepped.headers['Content-Type'] = 'application/json'
         
         # 添加随机延迟
-        time.sleep(random.uniform(0.5, 1.5))
+        time.sleep(random.uniform(0.5, 0.7))
         
         for attempt in range(self.config.MAX_RETRIES):
             try:
@@ -274,13 +286,19 @@ class XiaohongshuClient:
                 print("Response headers:", dict(response.headers))
                 
                 try:
-                    response_data = response.json()
+                    if reponse_format == "json":
+                        response_data = response.json()
+                    elif reponse_format == "xml":
+                        response_data = xmltodict.parse(response.text)
+                        return response_data
+                    else:
+                        response_data = response.text
                     self.logger.debug(f"Response data: {json.dumps(response_data, ensure_ascii=False, indent=2)}")
                     if self.is_success(response_data):
                         return response_data
                     else:
                         self.logger.error(f"Response data: {json.dumps(response_data, ensure_ascii=False, indent=2)}")
-                        return {"message": response_data.get("msg"), "status_code": response.status_code}
+                        return {"response": response.text, "status_code": response.status_code}
                 except json.JSONDecodeError:
                     self.logger.warning(f"Failed to parse JSON response: {response.text}")
                     return {"raw_response": response.text, "status_code": response.status_code}
