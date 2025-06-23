@@ -34,11 +34,11 @@ class NoteService:
                 tagInfo = tagsInfo[0]
                 builder.add_hashtag(tagInfo["id"], tagInfo["name"], tagInfo["link"])
 
-    def _get_upload_permit(self) -> Tuple[str, str, str]:
+    def _get_upload_permit(self, scene: str = "video") -> Tuple[str, str, str]:
         """
         获取上传许可
         """
-        params = {"biz_name": "spectrum", "scene": "video", "file_count": 1, "version": "1", "source": "web"}
+        params = {"biz_name": "spectrum", "scene": scene, "file_count": 1, "version": "1", "source": "web"}
         response = self.client._make_request("GET", "/api/media/v1/upload/creator/permit", api_base_url="https://creator.xiaohongshu.com", params=params)
         if upload_permits:=response["data"].get("uploadTempPermits", []):
             upload_permit = upload_permits[0]
@@ -232,6 +232,49 @@ class NoteService:
             self.logger.error(f"Failed to upload video: {str(e)}")
             raise
 
+    def _upload_cover(self, upload_addr: str, token: str, file_id: str, cover: str) -> str:
+        """
+        上传封面
+        """
+        file_data = requests.get(cover).content
+        url = f"https://{upload_addr}/{file_id}"
+        headers = {
+            "content-length": str(len(file_data)),
+            "x-cos-security-token": token
+        }
+
+        # 使用requests直接发送二进制数据
+        response = requests.put(
+            url,
+            headers=headers,
+            data=file_data,  # 直接发送二进制数据
+            stream=True  # 使用流式传输
+        )
+
+        if response.status_code != 200:
+            raise Exception(f"Failed to upload cover: {response.text}")
+        self.logger.info(f"上传封面成功: {file_id}")
+        return file_id
+
+    def upload_cover_to_xiaohongshu(self, cover: str) -> str:
+        """
+        上传封面到小红书
+        """
+        try:
+            # 获取上传许可
+            upload_addr, token, file_id = self._get_upload_permit(scene="image")
+            if not upload_addr or not token or not file_id:
+                self.logger.error(f"封面上传获取上传许可失败: {upload_addr}, {token}, {file_id}, {cover}")
+                raise
+            
+            # 上传
+            self._upload_cover(upload_addr, token, file_id, cover)
+            return file_id
+            
+        except Exception as e:
+            self.logger.error(f"Failed to upload cover: {str(e)}")
+            raise
+
     def _build_complete_xml(self, parts: List[Dict[str, str]]) -> str:
         """构建完成上传的XML请求体"""
         # 手动构建XML声明，确保格式完全匹配
@@ -322,6 +365,12 @@ class NoteService:
         self.logger.info(f"文件信息: {file_info}")
         upload_result = self.upload_video_to_xiaohongshu(file_stream, file_info)
         video.third_file_id = upload_result.get("file_id", "")
+
+        style = f"video/snapshot,t_1000,f_jpg,w_{video.width},h_{video.height},m_fast"
+        cover = oss_service.bucket.sign_url("GET", video.oss_object_key, 3600, params={"x-oss-process": style})
+        file_id = self.upload_cover_to_xiaohongshu(cover)
+        video.cover_file_id = file_id
+
         # 设置视频信息
         builder.set_video_info(video)
         
@@ -331,9 +380,9 @@ class NoteService:
             
         try:
             self.logger.info("开始发送笔记")
-            # response = self.client._make_request("POST", "/web_api/sns/v2/note", api_base_url="https://edith.xiaohongshu.com", data=note_data)
+            response = self.client._make_request("POST", "/web_api/sns/v2/note", api_base_url="https://edith.xiaohongshu.com", data=note_data)
             self.logger.info("笔记发送完成")
-            # return response
+            return response
         except Exception as e:
             self.logger.error(f"发送笔记失败: {str(e)}")
             raise

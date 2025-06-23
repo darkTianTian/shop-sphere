@@ -63,6 +63,8 @@ def process_pending_articles():
             
             # 查询5条数据
             articles = session.exec(query).all()
+
+            base_logger.info(f"查询到{len(articles)}条待发布文章")
             
             for article in articles:
                 try:
