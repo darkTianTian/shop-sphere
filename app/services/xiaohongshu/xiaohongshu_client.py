@@ -197,6 +197,10 @@ class XiaohongshuClient:
     def _prepare_request(self, path: str, data: Optional[Dict] = None, **kwargs):
         self.set_sign(path, data)
         self.set_auth(AuthConfig.from_env())
+
+    def is_success(self, response: Dict[str, Any]) -> bool:
+        """检查响应是否成功"""
+        return response.get("success")
     
     def _make_request(self, method: str, path: str, api_base_url: str = "", data: Optional[Dict] = None, **kwargs) -> Dict[str, Any]:
         """发送HTTP请求
@@ -230,9 +234,8 @@ class XiaohongshuClient:
             url = f"{api_base_url}{path}"
         else:
             url = f"{self.config.API_BASE_URL}{path}"
-        self.logger.info(f"Making request to: {url}")
-        print(f"url====> {url}")
-        print(f"data====> {data}")
+        self.logger.info(f"Making request to: {url} [method: {method}]")
+        self.logger.info(f"Request data: {data}")
         
         # 准备请求数据
         if data:
@@ -273,7 +276,11 @@ class XiaohongshuClient:
                 try:
                     response_data = response.json()
                     self.logger.debug(f"Response data: {json.dumps(response_data, ensure_ascii=False, indent=2)}")
-                    return response_data
+                    if self.is_success(response_data):
+                        return response_data
+                    else:
+                        self.logger.error(f"Response data: {json.dumps(response_data, ensure_ascii=False, indent=2)}")
+                        return {"message": response_data.get("msg"), "status_code": response.status_code}
                 except json.JSONDecodeError:
                     self.logger.warning(f"Failed to parse JSON response: {response.text}")
                     return {"raw_response": response.text, "status_code": response.status_code}
