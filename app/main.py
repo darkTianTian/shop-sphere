@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
+import os
 
 from app.routers import health, auth, admin, products, articles, videos
 from app.settings import load_settings
@@ -35,8 +36,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 获取项目根目录的绝对路径
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 # 挂载静态文件
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "app/static")), name="static")
 
 # 包含路由
 app.include_router(health.router)

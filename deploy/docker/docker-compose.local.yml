@@ -11,6 +11,7 @@ services:
     volumes:
       - ../../app:/app/app
       - ../../scripts:/app/scripts
+      - ../../app/static:/app/static
       - ./logs/nginx:/var/log/nginx
       - ./logs/supervisor:/var/log/supervisor
     ports:

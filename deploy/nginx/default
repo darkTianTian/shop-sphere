@@ -35,6 +35,25 @@ server {
         alias /app/static/;
         expires 1y;
         add_header Cache-Control "public, immutable";
+        
+        # 增加对网站图标相关文件的支持
+        types {
+            text/plain                            manifest webmanifest;
+            image/x-icon                          ico;
+            image/png                             png;
+            application/json                      webmanifest;
+        }
+
+        # 允许跨域访问
+        add_header Access-Control-Allow-Origin *;
+        add_header Access-Control-Allow-Methods 'GET, POST, OPTIONS';
+        add_header Access-Control-Allow-Headers 'DNT,X-Mx-ReqToken,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization';
+        
+        # 调试信息
+        add_header X-Debug-Path $request_filename;
+        
+        # 尝试文件不存在时的后备方案
+        try_files $uri $uri/ =404;
     }
 
     # 模板文件（可选，如果需要直接访问）

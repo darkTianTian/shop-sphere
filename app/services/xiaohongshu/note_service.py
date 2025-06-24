@@ -330,7 +330,7 @@ class NoteService:
             ).first()
             self.logger.info(f"视频信息: {video}")    
             if not video:
-                self.logger.error(f"没有找到可用视频: {goods_id}")
+                self.logger.info(f"没有找到可用视频: {goods_id}")
                 return {"success": False, "message": "没有找到可用视频"}, None
             
         # 设置文章的话题标签
