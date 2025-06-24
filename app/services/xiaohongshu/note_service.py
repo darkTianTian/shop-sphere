@@ -10,7 +10,7 @@ from app.models.video import Video
 
 from app.services.xiaohongshu.xiaohongshu_client import XiaohongshuClient, XiaohongshuConfig
 from app.models.xiaohongshu import XiaohongshuNoteBuilder
-from app.models.product import ProductArticle, ArticleStatus, Tag
+from app.models.product import ProductArticle, ArticleStatus, Tag, ArticleVideoMapping
 from app.config.auth_config import AuthConfig
 from app.services.oss_service import OSSService
 import xml.etree.ElementTree as ET
@@ -32,7 +32,13 @@ class NoteService:
             response = self.client._make_request("POST", "/web_api/sns/v1/search/topic", api_base_url="https://edith.xiaohongshu.com", data=params)
             if tagsInfo := response["data"].get("topic_info_dtos", []):
                 tagInfo = tagsInfo[0]
-                builder.add_hashtag(tagInfo["id"], tagInfo["name"], tagInfo["link"])
+                # 添加 autoPlayMedioBack=yes 参数到链接
+                link = tagInfo["link"]
+                if "?" in link:
+                    link += "&autoPlayMedioBack=yes"
+                else:
+                    link += "?autoPlayMedioBack=yes"
+                builder.add_hashtag(tagInfo["id"], tagInfo["name"], link)
 
     def _get_upload_permit(self, scene: str = "video") -> Tuple[str, str, str]:
         """
@@ -294,44 +300,39 @@ class NoteService:
 
     def send_note(self, article_data: ProductArticle, goods_id: str, goods_name: str, note_data: Optional[Dict[str, Any]] = None) -> Tuple[Dict[str, Any], Video]:
         """
-        发送笔记
+        发送笔记到小红书
         
         Args:
-            note_data: 笔记数据，如果为None则使用示例数据，包含以下字段：
-                - title: 笔记标题
-                - desc: 笔记描述
-                - hash_tags: 话题标签列表，每个标签包含 id, name, type
-                - biz_relation: 商品关联信息，包含 biz_type, biz_id, goods_id, goods_name
-                - video_info: 视频信息，包含完整的视频元数据
-                    - fileid: 视频文件ID
-                    - file_id: 视频文件ID（与fileid相同）
-                    - format_width: 视频宽度
-                    - format_height: 视频高度
-                    - video_preview_type: 视频预览类型
-                    - composite_metadata: 视频和音频元数据
-                    - timelines: 时间线信息
-                    - cover: 封面信息
-                    - chapters: 章节信息
-                    - chapter_sync_text: 章节同步文本
-                    - segments: 视频分段信息
-                    - entrance: 入口信息
+            article_data: 文章数据
+            goods_id: 商品ID
+            goods_name: 商品名称
+            note_data: 笔记数据，如果为None则使用示例数据
             
         Returns:
-            API响应结果
+            Tuple[Dict[str, Any], Video]: 
+                - Dict[str, Any]: API响应结果，包含 success 字段表示是否成功
+                - Video: 使用的视频对象
         """
-
-        
         builder = XiaohongshuNoteBuilder()
         
         # 设置基本信息
-        builder.set_title(article_data.title)  
-        # builder.set_description('''养猫的铲屎官们，是不是还在为主子的"破坏力"发愁？沙发、椅子、桌腿无一幸免，换了不少猫抓板却总是不耐用、不防滑？🙃别担心，今天推荐一款全能的剑麻猫抓板，让主子抓得开心、玩得尽兴、睡得舒适，一块顶三块！🎉\t\n\t\n🌟 优质剑麻材质：这款猫抓板采用天然剑麻细密编织，抓挠起来非常舒适，既不伤爪也不会掉毛～而且超级耐用，抓再久也不会变形，简直是猫主子的抓挠理想型！🐾\t\n\t\n🌟 贴心防滑设计：抓板底部设计了防滑垫，不管是放在瓷砖地板、木地板还是地毯上，都能稳稳地贴合地面，再也不用担心主子抓挠时抓板滑来滑去，简直省心又放心！🎯\t\n\t\n🌟 逗猫球太加分：这款抓板自带一个逗猫球，主子一看到就挪不开爪子，一会儿拨球、一会儿抓挠，玩得根本停不下来～抓累了还能直接趴在抓板上睡觉，真的是抓、玩、睡一站式服务，性价比爆棚！💰\t\n\t\n✨ 实际体验：买了这款剑麻抓板之后，我家主子再也不抓沙发了，天天围着抓板抓个不停，玩逗猫球玩得特别起劲～而且抓板防滑又耐用，我根本不用担心它乱跑或者散架～最治愈的是，看着主子玩累了呼呼睡觉的模样，铲屎官心里都被暖化了！😍\t\n\t\n铲屎官们，别再犹豫啦！🎁 快给主子安排上这款超实用的剑麻抓板吧～让主子玩得尽兴，铲屎官更省心！❤️\t\n\t\n\n #猫咪用品分享[话题]#  #猫咪自嗨玩具[话题]#  #铲屎官必备[话题]#  #剑麻猫抓板[话题]#  #好物分享[话题]#  #猫窝推荐[话题]# ''')
+        builder.set_title(article_data.title)
         tags = article_data.tags.split(",")
         description = f"{article_data.content}\n\n"
         for tag in tags:
             description += f"#{tag} "
         builder.set_description(description)
-
+        
+         # 获取视频信息
+        with Session(engine) as session:
+            video = session.exec(
+                select(Video).where(Video.sku_id == goods_id, Video.is_enabled == True)
+            ).first()
+            self.logger.info(f"视频信息: {video}")    
+            if not video:
+                self.logger.error(f"没有找到可用视频: {goods_id}")
+                return {"success": False, "message": "没有找到可用视频"}, None
+            
         # 设置文章的话题标签
         self.set_topic_tags(article_data, builder)
 
@@ -344,26 +345,16 @@ class NoteService:
             'image_type': 'spec',
             'left_bottom_type': 'BUY_GOODS',
             'bind_order': 0
-            }
+        }
         builder.add_biz_relation(
             biz_type="GOODS_SELLER_V2",
             biz_id=goods_id,
             extra_info=json.dumps(extra_info)
         )
         
-        # 获取视频信息
-        # TODO:这里sku_id为空
-        with Session(engine) as session:
-            video = session.exec(
-                select(Video).where(Video.sku_id == goods_id, Video.is_enabled == True)
-            ).first()
-            self.logger.info(f"视频信息: {video}")    
-            if not video:
-                self.logger.error(f"没有找到可用视频: {goods_id}")
-                return {}, None
+       
         
-        # 上传视频到小红书
-        # 这里获取视频文件，从oss下载到本地，注意如果是本地环境，走外网endpoint，如果是prod环境，走内网endpoint
+            # 上传视频到小红书
         oss_service = OSSService(logger=self.logger)
         file_stream, file_info = oss_service.get_file_stream(video.oss_object_key, chunk_size=3 * 1024 * 1024)
         self.logger.info(f"文件信息: {file_info}")
@@ -379,7 +370,6 @@ class NoteService:
         builder.set_video_info(video)
         
         note_data = builder.build()
-
         self.logger.info(f"笔记数据: {note_data}")
             
         try:
@@ -389,7 +379,7 @@ class NoteService:
             return response, video
         except Exception as e:
             self.logger.error(f"发送笔记失败: {str(e)}")
-            raise
+            return {"success": False, "message": str(e)}, video
     
     def close(self):
         """关闭服务"""

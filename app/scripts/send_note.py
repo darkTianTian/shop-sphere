@@ -8,7 +8,7 @@ import traceback
 import time
 from sqlmodel import Session, select
 from app.internal.db import engine
-from app.models.product import Product, ProductArticle, ArticleStatus
+from app.models.product import ArticleVideoMapping, Product, ProductArticle, ArticleStatus
 from app.services.xiaohongshu.note_service import NoteService
 from app.settings import load_settings
 
@@ -48,10 +48,11 @@ except Exception as e:
 
 def process_pending_articles():
     """处理待发布的文章"""
-    note_service = NoteService(logger=base_logger)
-    current_time = int(time.time() * 1000)  # 当前时间戳（毫秒）
-    
+    current_time = int(time.time() * 1000)
+
     try:
+        note_service = NoteService(logger=base_logger)
+        
         with Session(engine) as session:
             # 查询预发布时间小于当前时间的文章，按预发布时间递增排序
             query = select(ProductArticle).where(
@@ -77,30 +78,47 @@ def process_pending_articles():
                     # 发送笔记
                     base_logger.info(f"开始发送文章 {article.id}， 商品 {product.item_id}， 标题 {article.title} 到小红书")
                     #TODO: 这里用了商品的名称，而不是sku的名称
-                    success, video = note_service.send_note(article, product.first_sku_id, product.item_name)
+                    response, video = note_service.send_note(article, product.first_sku_id, product.item_name)
                     
-                    if success:
+                    if response.get("success", False) and video:
+                        
                         # 更新文章状态
-                        article.publish_time = int(time.time() * 1000)
+                        article.publish_time = current_time
                         article.status = ArticleStatus.PUBLISHED
-                        # TODO：更新视频发布次数
+                        
+                        # 更新视频发布次数
                         video.publish_cnt += 1
+                        
+                        # 创建文章和视频的关联记录
+                        mapping = ArticleVideoMapping(
+                            article_id=article.id,
+                            video_id=video.id,
+                            status="published",
+                            publish_time=current_time
+                        )
+                        
+                        # 保存所有更改
                         session.add(video)
                         session.add(article)
+                        session.add(mapping)
                         session.commit()
+                        
                         base_logger.info(f"文章-【{article.id}】， 商品-【{product.item_id}】， 标题-【{article.title}】 发布成功")
                     else:
-                        article.status = ArticleStatus.PUBLISH_FAILED
-                        session.add(article)
-                        session.commit()
-                        base_logger.error(f"文章-{article.id}， 商品-{product.item_id}， 标题-{article.title} 发布失败")
+                        if not video:
+                            base_logger.info(f"文章-【{article.id}】， 商品-【{product.item_id}】， 标题-【{article.title}】 发布终止: 没有找到可用视频")
+                            continue
+                        error_msg = response.get("message", "未知错误")
+                        base_logger.error(f"文章-【{article.id}】， 商品-【{product.item_id}】， 标题-【{article.title}】 发布失败: {error_msg}")
                     
                 except Exception as e:
                     base_logger.error(f"处理文章-{article.id}， 商品-{product.item_id}， 标题-{article.title} 时出错: {str(e)}")
                     continue
-                    
+            
     except Exception as e:
-        base_logger.error(f"查询待发布文章时出错: {str(e)}")
+        base_logger.error(f"处理待发布文章时出错: {str(e)}")
+    finally:
+        note_service.close()
 
 def main():
     """主函数"""
