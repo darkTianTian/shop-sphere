@@ -292,7 +292,7 @@ class NoteService:
         body = ET.tostring(root, encoding='UTF-8', xml_declaration=False).decode('utf-8')
         return xml_declaration + body
 
-    def send_note(self, article_data: ProductArticle, goods_id: str, goods_name: str, note_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def send_note(self, article_data: ProductArticle, goods_id: str, goods_name: str, note_data: Optional[Dict[str, Any]] = None) -> Tuple[Dict[str, Any], Video]:
         """
         发送笔记
         
@@ -326,7 +326,11 @@ class NoteService:
         # 设置基本信息
         builder.set_title(article_data.title)  
         # builder.set_description('''养猫的铲屎官们，是不是还在为主子的"破坏力"发愁？沙发、椅子、桌腿无一幸免，换了不少猫抓板却总是不耐用、不防滑？🙃别担心，今天推荐一款全能的剑麻猫抓板，让主子抓得开心、玩得尽兴、睡得舒适，一块顶三块！🎉\t\n\t\n🌟 优质剑麻材质：这款猫抓板采用天然剑麻细密编织，抓挠起来非常舒适，既不伤爪也不会掉毛～而且超级耐用，抓再久也不会变形，简直是猫主子的抓挠理想型！🐾\t\n\t\n🌟 贴心防滑设计：抓板底部设计了防滑垫，不管是放在瓷砖地板、木地板还是地毯上，都能稳稳地贴合地面，再也不用担心主子抓挠时抓板滑来滑去，简直省心又放心！🎯\t\n\t\n🌟 逗猫球太加分：这款抓板自带一个逗猫球，主子一看到就挪不开爪子，一会儿拨球、一会儿抓挠，玩得根本停不下来～抓累了还能直接趴在抓板上睡觉，真的是抓、玩、睡一站式服务，性价比爆棚！💰\t\n\t\n✨ 实际体验：买了这款剑麻抓板之后，我家主子再也不抓沙发了，天天围着抓板抓个不停，玩逗猫球玩得特别起劲～而且抓板防滑又耐用，我根本不用担心它乱跑或者散架～最治愈的是，看着主子玩累了呼呼睡觉的模样，铲屎官心里都被暖化了！😍\t\n\t\n铲屎官们，别再犹豫啦！🎁 快给主子安排上这款超实用的剑麻抓板吧～让主子玩得尽兴，铲屎官更省心！❤️\t\n\t\n\n #猫咪用品分享[话题]#  #猫咪自嗨玩具[话题]#  #铲屎官必备[话题]#  #剑麻猫抓板[话题]#  #好物分享[话题]#  #猫窝推荐[话题]# ''')
-        builder.set_description(article_data.content)
+        tags = article_data.tags.split(",")
+        description = f"{article_data.content}\n\n"
+        for tag in tags:
+            description += f"#{tag} "
+        builder.set_description(description)
 
         # 设置文章的话题标签
         self.set_topic_tags(article_data, builder)
@@ -356,7 +360,7 @@ class NoteService:
             self.logger.info(f"视频信息: {video}")    
             if not video:
                 self.logger.error(f"没有找到可用视频: {goods_id}")
-                return {}
+                return {}, None
         
         # 上传视频到小红书
         # 这里获取视频文件，从oss下载到本地，注意如果是本地环境，走外网endpoint，如果是prod环境，走内网endpoint
@@ -382,7 +386,7 @@ class NoteService:
             self.logger.info("开始发送笔记")
             response = self.client._make_request("POST", "/web_api/sns/v2/note", api_base_url="https://edith.xiaohongshu.com", data=note_data)
             self.logger.info("笔记发送完成")
-            return response
+            return response, video
         except Exception as e:
             self.logger.error(f"发送笔记失败: {str(e)}")
             raise

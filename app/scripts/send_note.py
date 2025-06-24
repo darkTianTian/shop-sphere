@@ -77,19 +77,24 @@ def process_pending_articles():
                     # 发送笔记
                     base_logger.info(f"开始发送文章 {article.id}， 商品 {product.item_id}， 标题 {article.title} 到小红书")
                     #TODO: 这里用了商品的名称，而不是sku的名称
-                    success = note_service.send_note(article, product.first_sku_id, product.item_name)
+                    success, video = note_service.send_note(article, product.first_sku_id, product.item_name)
                     
                     if success:
                         # 更新文章状态
                         article.publish_time = int(time.time() * 1000)
                         article.status = ArticleStatus.PUBLISHED
                         # TODO：更新视频发布次数
+                        video.publish_cnt += 1
+                        session.add(video)
                         session.add(article)
                         session.commit()
                         base_logger.info(f"文章-【{article.id}】， 商品-【{product.item_id}】， 标题-【{article.title}】 发布成功")
                     else:
+                        article.status = ArticleStatus.PUBLISH_FAILED
+                        session.add(article)
+                        session.commit()
                         base_logger.error(f"文章-{article.id}， 商品-{product.item_id}， 标题-{article.title} 发布失败")
-                        
+                    
                 except Exception as e:
                     base_logger.error(f"处理文章-{article.id}， 商品-{product.item_id}， 标题-{article.title} 时出错: {str(e)}")
                     continue
