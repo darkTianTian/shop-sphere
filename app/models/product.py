@@ -156,9 +156,9 @@ class ProductSearchRequestBuilder:
 
 
 class ProductStatus(str, Enum):
-    """商品状态枚举"""
-    ON_SHELF = "on_shelf"
-    OFF_SHELF = "off_shelf"
+    """商品状态枚举。托管；未托管；删除"""
+    MANAGED = "managed"
+    UNMANAGED = "unmanaged"
     DELETED = "deleted"
 
 
@@ -167,7 +167,7 @@ class Product(BaseModel, table=True):
     item_id: str = Field(index=True)
     item_name: str = Field()
     desc: Optional[str] = Field(default="")
-    status: ProductStatus = Field(default=ProductStatus.ON_SHELF, sa_column=sa.Column(sa.Enum(ProductStatus)))
+    status: ProductStatus = Field(default=ProductStatus.MANAGED, sa_column=sa.Column(sa.Enum(ProductStatus)))
     buyable: bool = Field(default=True)
     item_create_time: int = Field(default=0, sa_type=sa.BigInteger, index=True)
     item_update_time: int = Field(default=0, sa_type=sa.BigInteger, index=True)
@@ -479,7 +479,6 @@ class Product(BaseModel, table=True):
             item_id=item.get('item_id', ''),
             item_name=item.get('item_name', ''),
             desc=item.get('description', ''),
-            status=item.get('status', 0),
             buyable=item.get('buyable', True),
             item_create_time=item.get('create_time', 0),
             item_update_time=item.get('update_time', 0),

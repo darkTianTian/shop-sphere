@@ -6,9 +6,12 @@ import pytz
 import random
 from sqlmodel import Session, select
 import traceback
+import time
 
 # 设置基本的错误日志
 import logging
+
+from app.models.product import ProductStatus
 base_logger = logging.getLogger('fetch_products')
 base_logger.setLevel(logging.INFO)
 base_logger.propagate = False  # 防止日志传播到父logger
@@ -56,6 +59,8 @@ def save_result(result: dict, logger):
             
         items = result['data']['items']
         products_to_save = []
+        add_cnt = 0
+        update_cnt = 0
         
         # 将API响应数据转换为Product模型实例
         for item in items:
@@ -72,7 +77,6 @@ def save_result(result: dict, logger):
                 # 检查是否已存在
                 stmt = select(Product).where(Product.item_id == product.item_id)
                 existing_product = session.exec(stmt).first()
-                
                 if existing_product:
                     # 更新现有记录
                     existing_product.item_name = product.item_name
@@ -80,16 +84,20 @@ def save_result(result: dict, logger):
                     existing_product.min_price = product.min_price
                     existing_product.max_price = product.max_price
                     existing_product.update_time = datetime.now()
+                    existing_product.buyable = product.buyable
                     existing_product.images = product.images
+                    existing_product.deleted = product.deleted
                     logger.info(f"更新商品: {product.item_id}")
-                else:
+                    update_cnt += 1
+                elif product.buyable:
                     # 添加新记录
+                    # product.status = ProductStatus.MANAGED
                     session.add(product)
                     logger.info(f"新增商品: {product.item_id}")
-            
+                    add_cnt += 1
             session.commit()
             
-        logger.info(f"成功保存 {len(products_to_save)} 个商品到数据库")
+        logger.info(f"成功保存 {len(products_to_save)} 个商品到数据库，新增 {add_cnt} 个，更新 {update_cnt} 个")
         
     except Exception as e:
         error_msg = f"保存结果到数据库失败: {str(e)}\n{traceback.format_exc()}"
@@ -102,31 +110,73 @@ def fetch_products_task(product_service: ProductClient, logger):
         message = f"[{SERVER_ENV}] 开始获取商品列表任务 at {current_time}"
         logger.info(message)
         
-        # 搜索商品列表
-        response = product_service.search_products(
-            page_no=1,
-            page_size=20,
-            sort_field="create_time",
-            order="desc",
-            card_type=2,
-            is_channel=False
-        )
+        page = 1
+        page_size = 20
+        total_products = []
+        total_pages = None
+        
+        while True:
+            # 搜索商品列表
+            response = product_service.search_products(
+                page_no=page,
+                page_size=page_size,
+                sort_field="create_time",
+                order="desc",
+                card_type=1,
+                is_channel=False
+            )
+            
+            # 检查响应是否成功
+            if not response.get('success') or 'data' not in response:
+                logger.error(f"第 {page} 页请求失败")
+                page += 1
+                continue
+                
+            # 获取当前页的商品
+            items = response['data'].get('items', [])
+            if not items:
+                break
+                
+            # 第一页时获取总数，计算总页数
+            if page == 1:
+                total = response['data'].get('total', 0)
+                total_pages = (total + page_size - 1) // page_size
+                logger.info(f"商品总数: {total}, 总页数: {total_pages}")
+            
+            # 收集商品数据
+            total_products.extend(items)
+            logger.info(f"已获取第 {page} 页数据，当前共 {len(total_products)} 个商品")
+            
+            # 判断是否还有下一页
+            if not total_pages or page >= total_pages:
+                break
+                
+            page += 1
+            # 添加延迟，避免请求过于频繁
+            time.sleep(1)
         
         # 打印结果摘要
         logger.info("\n=== 搜索结果 ===")
-        logger.info(f"状态: {'成功' if response.get('success') else '失败'}")
-        logger.info(f"代码: {response.get('code')}")
-        logger.info(f"消息: {response.get('msg')}")
+        logger.info(f"状态: 成功")
+        logger.info(f"总页数: {total_pages}")
+        logger.info(f"总商品数: {len(total_products)}")
         
-        # 如果成功，额外打印一些统计信息
-        if response.get('success') and 'data' in response and 'items' in response['data']:
-            items = response['data']['items']
-            logger.info("=" * 60)
-            logger.info(f"🎉 本次任务完成，成功获取 {len(items)} 个商品信息")
-                
-            # 保存结果到数据库
-            save_result(response, logger)
+        # 构造完整的响应数据
+        complete_response = {
+            'success': True,
+            'code': 200,
+            'msg': 'ok',
+            'data': {
+                'total': len(total_products),
+                'items': total_products
+            }
+        }
         
+        # 保存结果到数据库
+        save_result(complete_response, logger)
+        
+        logger.info("=" * 60)
+        logger.info(f"🎉 本次任务完成，成功获取 {len(total_products)} 个商品信息")
         logger.info("=" * 60)
         
     except Exception as e:
