@@ -320,7 +320,7 @@ class NoteService:
         tags = article_data.tags.split(",")
         description = f"{article_data.content}\n\n"
         for tag in tags:
-            description += f"#{tag} "
+            description += f"#{tag}[话题]# "
         builder.set_description(description)
         
          # 获取视频信息
