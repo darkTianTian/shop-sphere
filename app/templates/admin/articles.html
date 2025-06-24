@@ -56,6 +56,9 @@
                                                 </div>
                                             </th>
                                             <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                已发布视频</th>
+                                            <th
                                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                                                 预发布时间 (UTC+08)</th>
                                             <th
@@ -148,52 +151,86 @@
                                                     if art.status.__class__.__name__=='ArticleStatus' else art.status }}
                                                 </span>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {{ art.pre_publish_time|datetimeformat if art.pre_publish_time else '-'
-                                                }}
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {{ art.publish_time|datetimeformat if art.publish_time else '-' }}
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {{ art.create_at|datetimeformat }}
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <a href="/admin/articles/{{ art.id }}/edit"
-                                                    class="inline-flex items-center px-2.5 py-0.5 mr-2 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium transition">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1"
-                                                        viewBox="0 0 20 20" fill="currentColor">
-                                                        <path
-                                                            d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
-                                                        <path fill-rule="evenodd"
-                                                            d="M5 13.5V16h2.5l9.586-9.586-2.5-2.5L5 13.5zM4 17a1 1 0 001 1h3.586a1 1 0 00.707-.293l10-10a1 1 0 000-1.414l-3.586-3.586a1 1 0 00-1.414 0l-10 10A1 1 0 004 14.414V17z"
-                                                            clip-rule="evenodd" />
-                                                    </svg>
-                                                    编辑
-                                                </a>
-                                                <button onclick="deleteArticle('{{ art.id }}')"
-                                                    class="inline-flex items-center px-2.5 py-0.5 rounded bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium transition">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1"
-                                                        viewBox="0 0 20 20" fill="currentColor">
-                                                        <path fill-rule="evenodd"
-                                                            d="M9 2a1 1 0 011 1v1h5a1 1 0 110 2H5a1 1 0 110-2h5V3a1 1 0 011-1zM5 7a1 1 0 011 1v7a1 1 0 102 0V8a1 1 0 112 0v7a1 1 0 102 0V8a1 1 0 112 0v7a1 1 0 102 0V8a1 1 0 011-1h-1V6H6v1H5z"
-                                                            clip-rule="evenodd" />
-                                                    </svg>
-                                                    删除
-                                                </button>
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                {% if art.id in video_map %}
+                                                <div class="flex justify-center">
+                                                    {% set video_info = video_map[art.id] %}
+                                                    {% set video = video_info.video %}
+                                                    {% set ratio = video.width / video.height if video.height else 1 %}
+                                                    {% set h = 120 / ratio %}
+                                                    {% set display_h = h if h <= 120 else 120 %} <div
+                                                        style="width:120px;height:{{ display_h }}px"
+                                                        class="relative group" data-video-id="{{ video.id }}">
+                                                        <img src="{{ video_info.thumb_url }}"
+                                                            class="rounded object-contain w-full h-full">
+                                                        <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300 cursor-pointer"
+                                                            onclick="openPlayer('{{ video.id }}')">
+                                                            <div
+                                                                class="w-8 h-8 rounded-full bg-black bg-opacity-50 flex items-center justify-center transform scale-0 group-hover:scale-100 transition-transform duration-300">
+                                                                <svg xmlns="http://www.w3.org/2000/svg"
+                                                                    class="h-5 w-5 text-white" fill="none"
+                                                                    viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                                        stroke-width="2"
+                                                                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                                        stroke-width="2"
+                                                                        d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                </svg>
+                                                            </div>
+                                                        </div>
+                                                </div>
                             </div>
-                            <!-- 分页导航已移至底部 -->
+                            {% else %}
+                            <span class="text-xs text-gray-400">-</span>
+                            {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ art.pre_publish_time|datetimeformat if art.pre_publish_time else '-'
+                                }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ art.publish_time|datetimeformat if art.publish_time else '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ art.create_at|datetimeformat }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <a href="/admin/articles/{{ art.id }}/edit"
+                                    class="inline-flex items-center px-2.5 py-0.5 mr-2 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20"
+                                        fill="currentColor">
+                                        <path
+                                            d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+                                        <path fill-rule="evenodd"
+                                            d="M5 13.5V16h2.5l9.586-9.586-2.5-2.5L5 13.5zM4 17a1 1 0 001 1h3.586a1 1 0 00.707-.293l10-10a1 1 0 000-1.414l-3.586-3.586a1 1 0 00-1.414 0l-10 10A1 1 0 004 14.414V17z"
+                                            clip-rule="evenodd" />
+                                    </svg>
+                                    编辑
+                                </a>
+                                <button onclick="deleteArticle('{{ art.id }}')"
+                                    class="inline-flex items-center px-2.5 py-0.5 rounded bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20"
+                                        fill="currentColor">
+                                        <path fill-rule="evenodd"
+                                            d="M9 2a1 1 0 011 1v1h5a1 1 0 110 2H5a1 1 0 110-2h5V3a1 1 0 011-1zM5 7a1 1 0 011 1v7a1 1 0 102 0V8a1 1 0 112 0v7a1 1 0 102 0V8a1 1 0 112 0v7a1 1 0 102 0V8a1 1 0 011-1h-1V6H6v1H5z"
+                                            clip-rule="evenodd" />
+                                    </svg>
+                                    删除
+                                </button>
+                            </td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                            </table>
                         </div>
+                        <!-- 分页导航已移至底部 -->
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
 </div>
 
 <!-- 分页导航（固定底部） -->
@@ -320,4 +357,108 @@
         modal.classList.remove('flex');
     }
 </script>
-{% endblock %}
+
+<!-- 视频播放器模态框 -->
+<dialog id="playerModal" class="w-full h-full bg-transparent p-0 m-0">
+    <div class="fixed inset-0 bg-black bg-opacity-50"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="relative bg-white rounded-lg shadow-xl w-full max-w-4xl">
+            <div class="p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">视频预览</h3>
+                    <button onclick="closePlayer()" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div id="playerContainer" class="aspect-video bg-black rounded-lg">
+                    <video id="player" class="w-full h-full" controls>
+                        您的浏览器不支持 HTML5 视频播放
+                    </video>
+                </div>
+            </div>
+        </div>
+    </div>
+</dialog>
+
+<script>
+    // 视频播放相关函数
+    function openPlayer(videoId) {
+        const modal = document.getElementById('playerModal');
+        const player = document.getElementById('player');
+
+        // 获取签名URL
+        fetch(`/admin/videos/${videoId}/play`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.url) {
+                    player.src = data.url;
+                    modal.showModal();
+
+                    // 自动播放
+                    player.play().catch(function (error) {
+                        console.log("视频自动播放失败:", error);
+                    });
+                } else {
+                    showToast('获取视频播放地址失败', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('获取视频播放地址失败:', error);
+                showToast('获取视频播放地址失败', 'error');
+            });
+    }
+
+    function closePlayer() {
+        const modal = document.getElementById('playerModal');
+        const player = document.getElementById('player');
+
+        // 确保视频完全停止播放
+        try {
+            player.pause();  // 暂停播放
+            player.currentTime = 0;  // 重置播放位置
+            player.src = '';  // 清除视频源
+            player.load();  // 强制重新加载，确保完全停止
+        } catch (e) {
+            console.error('停止视频播放时出错:', e);
+        }
+
+        modal.close();
+    }
+
+    // 当点击模态框背景时关闭
+    document.getElementById('playerModal').addEventListener('click', function (e) {
+        if (e.target === this) {
+            closePlayer();
+        }
+    });
+
+    // 添加ESC键关闭支持
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            closePlayer();
+        }
+    });
+
+    // 当模态框关闭时确保视频停止播放
+    document.getElementById('playerModal').addEventListener('close', function () {
+        const player = document.getElementById('player');
+        try {
+            player.pause();
+            player.currentTime = 0;
+            player.src = '';
+            player.load();
+        } catch (e) {
+            console.error('停止视频播放时出错:', e);
+        }
+    });
+</script>
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+    // ... existing delete and copy scripts ...
+</script>
+{% endblock extra_js %}

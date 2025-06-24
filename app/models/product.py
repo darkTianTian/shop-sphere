@@ -593,7 +593,7 @@ class ArticleVideoMapping(BaseModel, table=True):
     """文章视频关联表"""
     __tablename__ = "article_video_mapping"
     
-    article_id: int = Field(foreign_key="product_article.id", index=True, description="文章ID")
-    video_id: int = Field(foreign_key="video.id", index=True, description="视频ID")
+    article_id: int = Field(index=True, description="文章ID")
+    video_id: int = Field(index=True, description="视频ID")
     status: str = Field(default="published", description="关联状态", sa_type=sa.String(length=32))
     publish_time: int = Field(default=0, sa_type=sa.BigInteger, description="发布时间")

@@ -7,7 +7,9 @@ from datetime import datetime
 
 from app.auth.decorators import require_admin
 from app.internal.db import engine
-from app.models.product import Product, ProductArticle, ArticleStatus
+from app.models.product import Product, ProductArticle, ArticleStatus, ArticleVideoMapping
+from app.models.video import Video
+from app.services.oss_service import OSSService
 from app.routers.admin import templates as shared_templates
 
 router = APIRouter(prefix="/admin", tags=["articles"])
@@ -16,7 +18,7 @@ templates: Jinja2Templates = shared_templates
 
 @router.get("/articles", response_class=HTMLResponse)
 async def list_articles(request: Request, page: int = 1, current_user: dict = Depends(require_admin())):
-    PAGE_SIZE = 30
+    PAGE_SIZE = 20
     page = max(page, 1)
     with Session(engine) as session:
         total = session.exec(select(func.count(ProductArticle.id))).one()
@@ -27,11 +29,44 @@ async def list_articles(request: Request, page: int = 1, current_user: dict = De
                 select(ProductArticle).order_by(ProductArticle.create_at.desc()).offset(offset_val).limit(PAGE_SIZE)
             ).all()
         )
+        
+        # 获取商品信息
         item_ids = [a.item_id for a in articles if a.item_id]
         product_map: dict[str, Product] = {}
         if item_ids:
             products = session.exec(select(Product).where(Product.item_id.in_(item_ids))).all()
             product_map = {p.item_id: p for p in products}
+        
+        # 获取文章-视频关联信息
+        article_ids = [a.id for a in articles]
+        video_map = {}
+        if article_ids:
+            # 查询已发布的文章-视频关联记录
+            mappings = session.exec(
+                select(ArticleVideoMapping, Video)
+                .join(Video, ArticleVideoMapping.video_id == Video.id, isouter=True)
+                .where(
+                    ArticleVideoMapping.article_id.in_(article_ids),
+                    ArticleVideoMapping.status == "published"
+                )
+            ).all()
+            
+            # 生成视频缩略图URL
+            oss_service = OSSService()
+            for mapping, video in mappings:
+                if video and oss_service.is_available():
+                    style = "video/snapshot,t_1000,f_jpg,w_320,m_fast"
+                    thumb_url = oss_service.bucket.sign_url(
+                        "GET", 
+                        video.oss_object_key, 
+                        3600, 
+                        params={"x-oss-process": style}
+                    )
+                    video_map[mapping.article_id] = {
+                        "video": video,
+                        "thumb_url": thumb_url
+                    }
+
         return templates.TemplateResponse(
             "admin/articles.html",
             {
@@ -40,6 +75,7 @@ async def list_articles(request: Request, page: int = 1, current_user: dict = De
                 "articles": articles,
                 "ArticleStatus": ArticleStatus,
                 "product_map": product_map,
+                "video_map": video_map,
                 "page": page,
                 "total_pages": total_pages,
                 "has_prev": page > 1,
