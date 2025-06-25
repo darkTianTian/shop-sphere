@@ -5,7 +5,62 @@
 {% block content %}
 <div class="bg-white shadow overflow-hidden sm:rounded-lg">
     <div class="px-4 py-5 sm:px-6">
-        <h3 class="text-lg leading-6 font-medium text-gray-900">商品管理</h3>
+        <div class="flex justify-between items-center">
+            <div>
+                <h3 class="text-lg leading-6 font-medium text-gray-900">商品管理</h3>
+                <p class="mt-1 text-sm text-gray-500">
+                    总商品数: {{ total_count }}，托管商品数: {{ managed_count }}
+                </p>
+            </div>
+            <div class="flex space-x-4">
+                <form method="get" class="w-full">
+                    <div class="flex space-x-4">
+                        <div class="flex-1">
+                            <label for="search" class="block text-sm font-medium text-gray-700 mb-1">商品名称</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd"
+                                            d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                                            clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                <input type="text" name="search" id="search" value="{{ search }}"
+                                    class="focus:ring-primary focus:border-primary block w-full pl-10 pr-3 py-2 sm:text-sm border-2 border-gray-300 hover:border-gray-400 rounded-md transition-colors"
+                                    placeholder="输入商品名称搜索">
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <label for="item_id" class="block text-sm font-medium text-gray-700 mb-1">商品ID</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
+                                    </svg>
+                                </div>
+                                <input type="text" name="item_id" id="item_id" value="{{ item_id }}"
+                                    class="focus:ring-primary focus:border-primary block w-full pl-10 pr-3 py-2 sm:text-sm border-2 border-gray-300 hover:border-gray-400 rounded-md transition-colors"
+                                    placeholder="输入商品ID精确搜索">
+                            </div>
+                        </div>
+                        <div class="flex space-x-2 self-end">
+                            <button type="submit"
+                                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                                搜索
+                            </button>
+                            {% if search or item_id %}
+                            <a href="/admin/products"
+                                class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                                清除
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
     <div class="border-t border-gray-200">
         <div class="bg-white">
@@ -157,6 +212,24 @@
         </div>
     </div>
 </div>
+
+<!-- 分页导航（固定底部） -->
+<div class="sticky bottom-0 left-0 w-full bg-white py-3 flex justify-center space-x-4 border-t shadow-inner z-30">
+    {% if has_prev %}
+    <a href="?page={{ page-1 }}{% if search %}&search={{ search }}{% endif %}{% if item_id %}&item_id={{ item_id }}{% endif %}"
+        class="w-20 text-center px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 text-sm">上一页</a>
+    {% else %}
+    <span class="w-20 text-center px-3 py-1 rounded bg-gray-50 text-gray-400 text-sm cursor-not-allowed">上一页</span>
+    {% endif %}
+
+    <span class="px-3 py-1 text-sm text-gray-600">第 {{ page }} / {{ total_pages }} 页</span>
+
+    {% if has_next %}
+    <a href="?page={{ page+1 }}{% if search %}&search={{ search }}{% endif %}{% if item_id %}&item_id={{ item_id }}{% endif %}"
+        class="w-20 text-center px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 text-sm">下一页</a>
+    {% else %}
+    <span class="w-20 text-center px-3 py-1 rounded bg-gray-50 text-gray-400 text-sm cursor-not-allowed">下一页</span>
+    {% endif %}
 </div>
 
 <script>
