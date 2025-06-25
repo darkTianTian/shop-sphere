@@ -1,0 +1,319 @@
+{% extends "admin/base.html" %}
+
+{% block title %}发布配置 - ShopSphere{% endblock %}
+
+{% block content %}
+<!-- Toast 通知 -->
+<div id="notification"
+    class="fixed top-4 right-4 px-4 py-2 bg-green-500 text-white rounded shadow-lg transition-opacity duration-500 opacity-0">
+</div>
+
+<div class="flex space-x-8">
+    <!-- 左侧配置表单 -->
+    <div class="flex-1">
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+            <div class="px-4 py-5 sm:px-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">发布配置</h3>
+                <p class="mt-1 text-sm text-gray-500">
+                    配置文章生成和发布的时间规则
+                </p>
+            </div>
+            <div class="border-t border-gray-200">
+                <form method="post" class="divide-y divide-gray-200">
+                    <div class="px-4 py-5 sm:p-6">
+                        <!-- 文章生成时间 -->
+                        <div class="mb-6">
+                            <label class="text-base font-medium text-gray-900">文章生成时间（北京时间）</label>
+                            <p class="text-sm text-gray-500">
+                                设置每天生成文章的时间点，文章生成后可以在文章管理中预览修改，建议设置为00:30～08:30之间，低峰期同价位使用更好的AI模型</p>
+                            <div class="mt-2 flex space-x-2">
+                                <div>
+                                    <label for="generate_hour" class="block text-sm font-medium text-gray-700">时</label>
+                                    <select id="generate_hour" name="generate_hour"
+                                        class="mt-1 block w-24 pl-3 pr-10 py-2 text-base border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm rounded-md shadow-sm">
+                                        {% for hour in range(24) %}
+                                        <option value="{{ hour }}" {% if config.generate_time.hour==hour %}selected{%
+                                            endif %}>
+                                            {{ "%02d"|format(hour) }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="generate_minute"
+                                        class="block text-sm font-medium text-gray-700">分</label>
+                                    <select id="generate_minute" name="generate_minute"
+                                        class="mt-1 block w-24 pl-3 pr-10 py-2 text-base border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm rounded-md shadow-sm">
+                                        {% for minute in range(60) %}
+                                        <option value="{{ minute }}" {% if config.generate_time.minute==minute
+                                            %}selected{% endif %}>
+                                            {{ "%02d"|format(minute) }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 发布时段 -->
+                        <div class="mb-6">
+                            <label class="text-base font-medium text-gray-900">发布时段（北京时间）</label>
+                            <p class="text-sm text-gray-500">设置每天可以发布文章的时间段</p>
+                            <div class="mt-2 flex items-center space-x-4">
+                                <div class="flex space-x-2">
+                                    <div>
+                                        <label for="publish_start_hour"
+                                            class="block text-sm font-medium text-gray-700">开始时</label>
+                                        <select id="publish_start_hour" name="publish_start_hour"
+                                            onchange="updatePreview()"
+                                            class="mt-1 block w-24 pl-3 pr-10 py-2 text-base border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm rounded-md shadow-sm">
+                                            {% for hour in range(24) %}
+                                            <option value="{{ hour }}" {% if config.publish_start_time.hour==hour
+                                                %}selected{% endif %}>
+                                                {{ "%02d"|format(hour) }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="publish_start_minute"
+                                            class="block text-sm font-medium text-gray-700">开始分</label>
+                                        <select id="publish_start_minute" name="publish_start_minute"
+                                            onchange="updatePreview()"
+                                            class="mt-1 block w-24 pl-3 pr-10 py-2 text-base border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm rounded-md shadow-sm">
+                                            {% for minute in range(60) %}
+                                            <option value="{{ minute }}" {% if config.publish_start_time.minute==minute
+                                                %}selected{% endif %}>
+                                                {{ "%02d"|format(minute) }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                <span class="text-gray-500">至</span>
+                                <div class="flex space-x-2">
+                                    <div>
+                                        <label for="publish_end_hour"
+                                            class="block text-sm font-medium text-gray-700">结束时</label>
+                                        <select id="publish_end_hour" name="publish_end_hour" onchange="updatePreview()"
+                                            class="mt-1 block w-24 pl-3 pr-10 py-2 text-base border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm rounded-md shadow-sm">
+                                            {% for hour in range(24) %}
+                                            <option value="{{ hour }}" {% if config.publish_end_time.hour==hour
+                                                %}selected{% endif %}>
+                                                {{ "%02d"|format(hour) }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="publish_end_minute"
+                                            class="block text-sm font-medium text-gray-700">结束分</label>
+                                        <select id="publish_end_minute" name="publish_end_minute"
+                                            onchange="updatePreview()"
+                                            class="mt-1 block w-24 pl-3 pr-10 py-2 text-base border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm rounded-md shadow-sm">
+                                            {% for minute in range(60) %}
+                                            <option value="{{ minute }}" {% if config.publish_end_time.minute==minute
+                                                %}selected{% endif %}>
+                                                {{ "%02d"|format(minute) }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 发布限制 -->
+                        <div class="mb-6">
+                            <label class="text-base font-medium text-gray-900">发布限制</label>
+                            <div class="mt-2 space-y-4">
+                                <div>
+                                    <label for="daily_publish_limit"
+                                        class="block text-sm font-medium text-gray-700">每日发布笔记数量</label>
+                                    <div class="mt-1">
+                                        <input type="number" name="daily_publish_limit" id="daily_publish_limit"
+                                            onchange="updatePreview()" oninput="updatePreview()"
+                                            class="mt-1 block w-full pl-3 pr-3 py-2 text-base border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm rounded-md shadow-sm"
+                                            value="{{ config.daily_publish_limit }}" min="1" max="50">
+                                    </div>
+                                    <p class="mt-1 text-sm text-gray-500">每天发布的笔记数量，系统会将笔记均匀分布在发布时段内</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 启用状态 -->
+                        <div class="relative flex items-start">
+                            <div class="flex items-center h-5">
+                                <input id="is_enabled" name="is_enabled" type="checkbox"
+                                    class="focus:ring-primary h-4 w-4 text-primary border-gray-300 rounded" {% if
+                                    config.is_enabled %}checked{% endif %}>
+                            </div>
+                            <div class="ml-3 text-sm">
+                                <label for="is_enabled" class="font-medium text-gray-700">启用配置</label>
+                                <p class="text-gray-500">启用后将按照此配置生成和发布文章</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="px-4 py-3 bg-gray-50 text-right sm:px-6">
+                        <button type="submit"
+                            class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                            保存配置
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧预览 -->
+    <div class="w-80">
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg sticky top-4">
+            <div class="px-4 py-5 sm:px-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">发布时间预览（北京时间）</h3>
+                <p class="mt-1 text-sm text-gray-500" id="previewDesc">
+                    根据当前配置，系统会在以下时间点发布笔记
+                </p>
+            </div>
+            <div class="border-t border-gray-200">
+                <div class="px-4 py-5 sm:p-6">
+                    <div id="previewTimes" class="space-y-2">
+                        <!-- 预览结果将在这里显示 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 页面加载完成后自动预览
+    document.addEventListener('DOMContentLoaded', function () {
+        updatePreview();
+    });
+
+    function showNotification(message) {
+        const notification = document.getElementById('notification');
+        if (notification) {
+            notification.textContent = message;
+            notification.style.opacity = '1';
+            setTimeout(() => {
+                notification.style.opacity = '0';
+            }, 2000);
+        }
+    }
+
+    // 监听表单提交
+    document.querySelector('form').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        // 获取表单数据
+        const formData = new FormData(this);
+
+        // 发送表单数据
+        fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'Accept': 'application/json'
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showNotification('配置已保存');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('保存失败');
+            });
+    });
+
+    function calculatePublishTimes(startHour, startMinute, endHour, endMinute, articleCount) {
+        // 计算开始和结束时间的分钟数
+        const startTotalMinutes = startHour * 60 + startMinute;
+        let endTotalMinutes = endHour * 60 + endMinute;
+
+        // 处理跨天的情况
+        if (endTotalMinutes <= startTotalMinutes) {
+            endTotalMinutes += 24 * 60; // 加上24小时的分钟数
+        }
+
+        const totalDuration = endTotalMinutes - startTotalMinutes;
+
+        if (articleCount <= 0) {
+            return [];
+        }
+
+        const times = [];
+        if (articleCount === 1) {
+            // 如果只有一篇文章，放在开始时间
+            times.push(formatTime(startHour, startMinute));
+        } else {
+            // 计算时间间隔（分钟）
+            const interval = totalDuration / (articleCount - 1);
+
+            // 生成均匀分布的时间点
+            for (let i = 0; i < articleCount; i++) {
+                const minutesToAdd = Math.round(i * interval);
+                let totalMinutes = startTotalMinutes + minutesToAdd;
+
+                // 处理超过24小时的情况
+                if (totalMinutes >= 24 * 60) {
+                    totalMinutes -= 24 * 60;
+                }
+
+                const hour = Math.floor(totalMinutes / 60);
+                const minute = totalMinutes % 60;
+                times.push(formatTime(hour, minute));
+            }
+        }
+
+        return times;
+    }
+
+    function formatTime(hour, minute) {
+        return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    }
+
+    function updatePreview() {
+        try {
+            const startHour = parseInt(document.getElementById('publish_start_hour').value);
+            const startMinute = parseInt(document.getElementById('publish_start_minute').value);
+            const endHour = parseInt(document.getElementById('publish_end_hour').value);
+            const endMinute = parseInt(document.getElementById('publish_end_minute').value);
+            const articleCount = parseInt(document.getElementById('daily_publish_limit').value);
+
+            const publishTimes = calculatePublishTimes(startHour, startMinute, endHour, endMinute, articleCount);
+
+            const previewTimes = document.getElementById('previewTimes');
+            previewTimes.innerHTML = '';
+
+            if (publishTimes.length > 0) {
+                publishTimes.forEach((time, index) => {
+                    const timeDiv = document.createElement('div');
+                    timeDiv.className = 'flex items-center space-x-2 text-gray-900';
+                    timeDiv.innerHTML = `
+                        <span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary-light text-primary text-sm font-medium">
+                            ${index + 1}
+                        </span>
+                        <span>${time}</span>
+                    `;
+                    previewTimes.appendChild(timeDiv);
+                });
+
+                // 更新描述
+                document.getElementById('previewDesc').textContent =
+                    `根据当前配置，系统会在以下 ${publishTimes.length} 个时间点发布笔记，具体发布时间可能略有延迟`;
+            } else {
+                previewTimes.innerHTML = '<div class="text-gray-500">没有可用的发布时间</div>';
+            }
+        } catch (error) {
+            console.error('Preview error:', error);
+            const previewTimes = document.getElementById('previewTimes');
+            previewTimes.innerHTML = '<div class="text-red-500">预览失败：' + error.message + '</div>';
+        }
+    }
+</script>
+{% endblock %}

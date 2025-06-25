@@ -11,6 +11,8 @@ import traceback
 from datetime import datetime
 from typing import List, Optional
 
+from app.models.video import Video, VideoStatus
+
 # 添加项目根目录到 Python 路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -20,6 +22,7 @@ from app.models.product import Product, ProductArticle, ArticleStatus, ProductSt
 from app.services.ai_service import DeepSeekAIService
 from app.utils.logger import setup_logger
 from app.utils.scheduler import TaskScheduler
+from app.models.publish_config import PublishConfig
 
 # 设置日志
 base_logger = setup_logger(
@@ -42,14 +45,15 @@ class ProductArticleGenerator:
     def get_products_needing_articles(self) -> List[Product]:
         """
         获取需要生成文章的商品列表
-        条件：buyable=1, deleted=0，且没有 DRAFT/PENDING_REVIEW/PENDING_PUBLISH 状态的文章
+        且没有 DRAFT/PENDING_REVIEW/PENDING_PUBLISH 状态的文章
         """
         try:
             with Session(engine) as session:
+                
                 # 查询符合条件的商品
                 products_query = select(Product).where(
                     Product.status == ProductStatus.MANAGED,
-                )
+                ).limit(50).order_by(Product.item_create_time.desc())
                 products = session.exec(products_query).all()
                 
                 # 过滤出需要生成文章的商品
@@ -67,8 +71,15 @@ class ProductArticleGenerator:
                     )
                     existing_articles = session.exec(existing_articles_query).all()
                     
+                    # 查询商品是否存在待发布视频
+                    pending_videos_query = select(Video).where(
+                        Video.item_id == product.item_id,
+                        Video.is_enabled == True
+                    )
+                    has_video = session.exec(pending_videos_query).first() is not None
+
                     # 如果没有这些状态的文章，则需要生成
-                    if not existing_articles:
+                    if not existing_articles and has_video:
                         products_needing_articles.append(product)
                 
                 self.logger.info(f"找到 {len(products)} 个符合条件的商品，其中 {len(products_needing_articles)} 个需要生成文章")
@@ -208,38 +219,56 @@ class ProductArticleGenerator:
         self.logger.info("开始执行商品文章生成任务")
         
         try:
-            # 重置计数器
-            self.processed_count = 0
-            self.generated_count = 0
-            self.error_count = 0
-            
-            # 获取需要生成文章的商品
-            products = self.get_products_needing_articles()
-            
-            if not products:
-                self.logger.info("没有需要生成文章的商品")
-                return
-            
-            # 处理每个商品（限制每次处理数量，避免任务执行时间过长）
-            max_products_per_run = 5  # 每次最多处理5个商品（减少数量以适应每分钟执行）
-            products_to_process = products[:max_products_per_run]
-            
-            self.logger.info(f"本次将处理 {len(products_to_process)} 个商品")
-            
-            for product in products_to_process:
-                self.process_single_product(product)
-                # 添加短暂延迟，避免过于频繁的数据库操作
-                time.sleep(1)
-            
-            # 统计结果
-            elapsed_time = time.time() - start_time
-            self.logger.info(
-                f"任务执行完成 - 处理: {self.processed_count}, "
-                f"成功: {self.generated_count}, "
-                f"失败: {self.error_count}, "
-                f"耗时: {elapsed_time:.2f}秒"
-            )
-            
+            with Session(engine) as session:
+                # 获取发布配置
+                config = session.exec(select(PublishConfig)).first()
+                if not config or not config.is_enabled:
+                    self.logger.info("发布配置未启用，跳过文章生成")
+                    return
+                
+                # 重置计数器
+                self.processed_count = 0
+                self.generated_count = 0
+                self.error_count = 0
+                
+                # 获取需要生成文章的商品
+                products = self.get_products_needing_articles()
+                
+                if not products:
+                    self.logger.info("没有需要生成文章的商品")
+                    return
+                
+                # 计算发布时间点
+                publish_times = config.calculate_publish_times(len(products))
+                
+                # 处理每个商品
+                for product, publish_time in zip(products, publish_times):
+                    article_content = self.generate_article_with_ai(product)
+                    if not article_content:
+                        self.error_count += 1
+                        continue
+                    
+                    # 设置预发布时间
+                    article_content["pre_publish_time"] = int(publish_time.timestamp())
+                    
+                    # 保存到数据库
+                    if self.save_article_to_database(product, article_content):
+                        self.generated_count += 1
+                    else:
+                        self.error_count += 1
+                    
+                    # 添加短暂延迟，避免过于频繁的数据库操作
+                    time.sleep(1)
+                
+                # 统计结果
+                elapsed_time = time.time() - start_time
+                self.logger.info(
+                    f"任务执行完成 - 处理: {self.processed_count}, "
+                    f"成功: {self.generated_count}, "
+                    f"失败: {self.error_count}, "
+                    f"耗时: {elapsed_time:.2f}秒"
+                )
+                
         except Exception as e:
             self.logger.error(f"执行文章生成任务失败: {str(e)}\n{traceback.format_exc()}")
 

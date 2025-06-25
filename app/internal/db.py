@@ -4,6 +4,7 @@ from app.settings import load_settings
 from app.models.video import VideoMaterial
 from app.models.prompt import AIPromptTemplate
 from app.models.user import User  # 添加 User 模型导入
+from app.models.publish_config import PublishConfig
 
 def init_db():
     """初始化数据库，创建所有表"""
