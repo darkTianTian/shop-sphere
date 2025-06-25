@@ -81,6 +81,8 @@ class ProductArticleGenerator:
                     # 如果没有这些状态的文章，则需要生成
                     if not existing_articles and has_video:
                         products_needing_articles.append(product)
+                    elif not has_video:
+                        self.logger.info(f"商品 {product.item_id} 没有待发布视频，跳过文章生成")
                 
                 self.logger.info(f"找到 {len(products)} 个符合条件的商品，其中 {len(products_needing_articles)} 个需要生成文章")
                 return products_needing_articles

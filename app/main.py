@@ -49,6 +49,8 @@ app.include_router(admin.router)
 app.include_router(products.router)
 app.include_router(articles.router)
 app.include_router(videos.router)
+app.include_router(system_settings.router)
+app.include_router(publish_config.router)
 
 
 @app.get("/")

@@ -8,7 +8,7 @@ from app.auth.decorators import require_admin
 from app.internal.db import engine
 from app.models.publish_config import PublishConfig
 from app.routers.admin import templates as shared_templates
-from app.utils.scheduler import task_scheduler
+# from app.utils.scheduler import task_scheduler
 
 router = APIRouter(prefix="/admin", tags=["publish_config"])
 templates: Jinja2Templates = shared_templates
@@ -25,7 +25,7 @@ async def get_publish_config(request: Request, current_user: dict = Depends(requ
             session.commit()
             session.refresh(config)
             # 初始化调度任务
-            task_scheduler.update_article_generation_job()
+            # task_scheduler.update_article_generation_job()
         
         return templates.TemplateResponse(
             "admin/publish_config.html",
@@ -67,7 +67,7 @@ async def update_publish_config(
             session.commit()
             
             # 更新调度任务
-            task_scheduler.update_article_generation_job()
+            # task_scheduler.update_article_generation_job()
             
             # 根据请求的 Accept 头返回不同的响应
             if request.headers.get("accept") == "application/json":
