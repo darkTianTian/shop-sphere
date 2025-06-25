@@ -4,7 +4,10 @@ from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 
-from app.routers import health, auth, admin, products, articles, videos
+from app.routers import (
+    health, auth, admin, products, articles, videos,
+    system_settings, publish_config
+)
 from app.settings import load_settings
 from app.middleware.admin_auth import AdminAuthMiddleware
 
