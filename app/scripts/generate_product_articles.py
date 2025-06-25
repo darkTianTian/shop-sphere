@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlmodel import Session, select
 from app.internal.db import engine
-from app.models.product import Product, ProductArticle, ArticleStatus
+from app.models.product import Product, ProductArticle, ArticleStatus, ProductStatus
 from app.services.ai_service import DeepSeekAIService
 from app.utils.logger import setup_logger
 from app.utils.scheduler import TaskScheduler
@@ -48,8 +48,7 @@ class ProductArticleGenerator:
             with Session(engine) as session:
                 # 查询符合条件的商品
                 products_query = select(Product).where(
-                    Product.buyable == True,
-                    Product.deleted == False
+                    Product.status == ProductStatus.MANAGED,
                 )
                 products = session.exec(products_query).all()
                 

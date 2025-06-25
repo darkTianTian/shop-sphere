@@ -5,15 +5,36 @@ from sqlmodel import Session, select, func
 import math
 from datetime import datetime
 import json
+from pydantic import BaseModel
 
 from app.auth.decorators import require_admin
 from app.internal.db import engine
-from app.models.product import Product, ProductArticle, ArticleStatus
+from app.models.product import Product, ProductArticle, ArticleStatus, ProductStatus
 from app.routers.admin import templates as shared_templates
 
 router = APIRouter(prefix="/admin", tags=["products"])
 
 templates: Jinja2Templates = shared_templates  # reuse filters
+
+class ProductStatusUpdate(BaseModel):
+    status: ProductStatus
+
+@router.put("/products/{product_id}/status")
+async def update_product_status(
+    product_id: int,
+    status_update: ProductStatusUpdate,
+    current_user: dict = Depends(require_admin())
+):
+    """更新商品状态"""
+    with Session(engine) as session:
+        product = session.get(Product, product_id)
+        if not product:
+            raise HTTPException(status_code=404, detail="商品不存在")
+        
+        product.status = status_update.status
+        session.add(product)
+        session.commit()
+        return {"message": "状态更新成功"}
 
 # ------------------ 商品 ------------------
 

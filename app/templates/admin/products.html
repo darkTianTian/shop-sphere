@@ -34,6 +34,31 @@
                                                 库存
                                             </th>
                                             <th scope="col"
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                状态
+                                                <div class="inline-block relative group">
+                                                    <svg class="h-4 w-4 text-gray-400 inline-block ml-1 cursor-help"
+                                                        xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                                                        fill="currentColor">
+                                                        <path fill-rule="evenodd"
+                                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z"
+                                                            clip-rule="evenodd" />
+                                                    </svg>
+                                                    <div
+                                                        class="opacity-0 bg-black text-white text-sm rounded-lg py-2 px-3 absolute z-10 top-full left-1/2 transform -translate-x-1/2 translate-y-2 w-72 pointer-events-none group-hover:opacity-100 transition-opacity duration-300">
+                                                        商品初次添加后会设置为托管状态，如果在千帆后台下架，则会自动修改为未托管状态（稍有延迟，具体视脚本间隔）。如果商品再次上架，则不会自动修改为托管状态。只有托管状态的商品，才会自动生成文章和发布笔记。
+                                                        <div
+                                                            class="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-full">
+                                                            <svg class="h-2 w-2 text-black"
+                                                                xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                                                                fill="currentColor">
+                                                                <path d="M10 0l5 5H5l5-5z" />
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </th>
+                                            <th scope="col"
                                                 class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                 操作
                                             </th>
@@ -86,6 +111,17 @@
                             </div>
                             {% endif %}
                             </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <select onchange="updateStatus('{{ product.id }}', this.value)"
+                                    class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                    <option value="managed" {% if product.status=="managed" %}selected{% endif %}>托管
+                                    </option>
+                                    <option value="unmanaged" {% if product.status=="unmanaged" %}selected{% endif %}>
+                                        未托管</option>
+                                    <option value="deleted" {% if product.status=="deleted" %}selected{% endif %}>删除
+                                    </option>
+                                </select>
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <button onclick="deleteProduct('{{ product.id }}')"
                                     class="inline-flex items-center px-2.5 py-0.5 rounded bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium transition">
@@ -112,6 +148,38 @@
 </div>
 
 <script>
+    async function updateStatus(productId, status) {
+        try {
+            const response = await fetch(`/admin/products/${productId}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ status: status }),
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                // 显示成功提示
+                const notification = document.getElementById('notification');
+                if (notification) {
+                    notification.textContent = '状态更新成功';
+                    notification.className = 'fixed top-4 right-4 px-4 py-2 bg-green-500 text-white rounded shadow-lg transition-opacity duration-500';
+                    notification.style.opacity = '1';
+                    setTimeout(() => {
+                        notification.style.opacity = '0';
+                    }, 2000);
+                }
+            } else {
+                const data = await response.json();
+                alert(data.detail || '更新失败');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('更新失败');
+        }
+    }
+
     async function deleteProduct(productId) {
         if (!confirm('确定要删除这个商品吗？')) {
             return;
@@ -137,4 +205,9 @@
         }
     }
 </script>
+
+{# 添加通知元素 #}
+<div id="notification"
+    class="fixed top-4 right-4 px-4 py-2 bg-green-500 text-white rounded shadow-lg transition-opacity duration-500 opacity-0">
+</div>
 {% endblock %}

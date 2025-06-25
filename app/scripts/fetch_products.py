@@ -7,33 +7,23 @@ import random
 from sqlmodel import Session, select
 import traceback
 import time
-
-# 设置基本的错误日志
 import logging
 
 from app.models.product import ProductStatus
-base_logger = logging.getLogger('fetch_products')
-base_logger.setLevel(logging.INFO)
-base_logger.propagate = False  # 防止日志传播到父logger
+from app.utils.logger import setup_logger
+from app.utils.scheduler import TaskScheduler
+from app.services.xiaohongshu.product_client import ProductClient
+from app.config.auth_config import AuthConfig
+from app.models.product import Product
+from app.internal.db import engine
 
 # 获取环境信息
 SERVER_ENV = os.environ.get('SERVER_ENVIRONMENT', 'LOCAL')
-base_logger.info(f"Starting fetch_products in {SERVER_ENV} environment")
-base_logger.info(f"Current PYTHONPATH: {os.environ.get('PYTHONPATH', 'Not set')}")
-base_logger.info(f"Current working directory: {os.getcwd()}")
 
-# 引入封装的logger
-try:
-    from app.utils.logger import setup_logger
-    from app.utils.scheduler import TaskScheduler
-    from app.services.xiaohongshu.product_client import ProductClient
-    from app.config.auth_config import AuthConfig
-    from app.models.product import Product
-    from app.internal.db import engine
-except ImportError as e:
-    error_msg = f"导入模块失败: {str(e)}\n{traceback.format_exc()}"
-    base_logger.error(error_msg)
-    sys.exit(1)
+base_logger = setup_logger(
+    name=f'fetch_products_{SERVER_ENV.lower()}',
+    level=logging.INFO
+)
 
 # 通过settings.load_settings()动态加载配置
 try:
@@ -88,6 +78,10 @@ def save_result(result: dict, logger):
                     existing_product.images = product.images
                     existing_product.deleted = product.deleted
                     logger.info(f"更新商品: {product.item_id}")
+                    if not product.buyable:
+                        existing_product.status = ProductStatus.UNMANAGED
+                    # else:
+                    #     existing_product.status = ProductStatus.MANAGED
                     update_cnt += 1
                 elif product.buyable:
                     # 添加新记录
@@ -194,8 +188,8 @@ def main():
         logger = setup_logger(
             name=f'fetch_products_{SERVER_ENV.lower()}',
             log_file=log_file,
-            level=20,  # logging.INFO
-            log_to_stderr=False  # 修改这里，因为supervisor已经处理了日志重定向
+            level=logging.INFO,
+            log_to_stderr=False
         )
         logger.propagate = False  # 防止日志传播到父logger
         logger.info("Logger setup completed")
