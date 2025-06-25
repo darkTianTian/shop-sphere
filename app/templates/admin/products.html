@@ -248,26 +248,53 @@
 </div>
 
 <script>
-    async function copyToClipboard(element, text) {
+    function fallbackCopyTextToClipboard(text, element) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
         try {
-            await navigator.clipboard.writeText(text);
-
-            // 显示复制成功提示
-            const copyIcon = element.querySelector('.copy-icon');
-            const copyTick = element.querySelector('.copy-tick');
-
-            if (copyIcon && copyTick) {
-                copyIcon.style.opacity = '0';
-                copyTick.style.opacity = '1';
-
-                setTimeout(() => {
-                    copyIcon.style.opacity = '1';
-                    copyTick.style.opacity = '0';
-                }, 2000);
-            }
+            document.execCommand('copy');
+            showCopySuccess(element);
         } catch (err) {
             console.error('复制失败:', err);
             alert('复制失败');
+        }
+
+        document.body.removeChild(textArea);
+    }
+
+    function showCopySuccess(element) {
+        const copyIcon = element.querySelector('.copy-icon');
+        const copyTick = element.querySelector('.copy-tick');
+
+        if (copyIcon && copyTick) {
+            copyIcon.style.opacity = '0';
+            copyTick.style.opacity = '1';
+
+            setTimeout(() => {
+                copyIcon.style.opacity = '1';
+                copyTick.style.opacity = '0';
+            }, 2000);
+        }
+    }
+
+    async function copyToClipboard(element, text) {
+        if (!navigator.clipboard || !window.isSecureContext) {
+            // 如果 Clipboard API 不可用，使用后备方案
+            fallbackCopyTextToClipboard(text, element);
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(text);
+            showCopySuccess(element);
+        } catch (err) {
+            console.error('Clipboard API 失败，使用后备方案:', err);
+            fallbackCopyTextToClipboard(text, element);
         }
     }
 
