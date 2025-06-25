@@ -83,12 +83,24 @@
                                                         <div class="text-sm font-medium text-gray-900">
                                                             {{ product.item_name }}
                                                         </div>
-                                                        {% if product.description %}
-                                                        <div class="text-sm text-gray-500">
-                                                            {{ product.description[:50] + '...' if
-                                                            product.description|length > 50 else product.description }}
+                                                        <div class="flex items-center text-xs text-gray-500 space-x-1">
+                                                            <span>ID:</span>
+                                                            <div class="group relative inline-flex items-center cursor-pointer select-none rounded bg-gray-50 hover:bg-gray-100 px-1.5 py-0.5 font-mono text-gray-700 transition-all"
+                                                                onclick="copyToClipboard(this, '{{ product.item_id }}')">
+                                                                <span>{{ product.item_id }}</span>
+                                                                <div class="relative w-4 h-4 ml-1">
+                                                                    <svg class="copy-icon absolute inset-0 text-gray-400 opacity-0 group-hover:opacity-100 transform group-hover:scale-100 scale-90 transition"
+                                                                        viewBox="0 0 20 20" fill="currentColor">
+                                                                        <path
+                                                                            d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                                                                        <path
+                                                                            d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                                                                    </svg>
+                                                                    <span
+                                                                        class="copy-tick absolute inset-0 flex items-center justify-center text-green-600 text-sm opacity-0">✅</span>
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                        {% endif %}
                                                     </div>
                                                 </div>
                                             </td>
@@ -148,6 +160,29 @@
 </div>
 
 <script>
+    async function copyToClipboard(element, text) {
+        try {
+            await navigator.clipboard.writeText(text);
+
+            // 显示复制成功提示
+            const copyIcon = element.querySelector('.copy-icon');
+            const copyTick = element.querySelector('.copy-tick');
+
+            if (copyIcon && copyTick) {
+                copyIcon.style.opacity = '0';
+                copyTick.style.opacity = '1';
+
+                setTimeout(() => {
+                    copyIcon.style.opacity = '1';
+                    copyTick.style.opacity = '0';
+                }, 2000);
+            }
+        } catch (err) {
+            console.error('复制失败:', err);
+            alert('复制失败');
+        }
+    }
+
     async function updateStatus(productId, status) {
         try {
             const response = await fetch(`/admin/products/${productId}/status`, {
