@@ -179,14 +179,21 @@
                             {% endif %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <select onchange="updateStatus('{{ product.id }}', this.value)"
-                                    class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                                    <option value="managed" {% if product.status=="managed" %}selected{% endif %}>托管
-                                    </option>
-                                    <option value="unmanaged" {% if product.status=="unmanaged" %}selected{% endif %}>
-                                        未托管</option>
-                                    <option value="deleted" {% if product.status=="deleted" %}selected{% endif %}>删除
-                                    </option>
+                                <select onchange="updateStatus('{{ product.id }}', this.value)" class="block w-full pl-3 pr-10 py-2 text-sm font-medium rounded-md border-2 transition-colors
+                                    {% if product.status == 'managed' %}
+                                        text-green-700 bg-green-50 border-green-200 hover:border-green-300
+                                    {% elif product.status == 'unmanaged' %}
+                                        text-orange-700 bg-orange-50 border-orange-200 hover:border-orange-300
+                                    {% else %}
+                                        text-gray-700 bg-gray-50 border-gray-200 hover:border-gray-300
+                                    {% endif %}
+                                    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                                    <option value="managed" {% if product.status=="managed" %}selected{% endif %}
+                                        class="text-green-700 bg-white">托管</option>
+                                    <option value="unmanaged" {% if product.status=="unmanaged" %}selected{% endif %}
+                                        class="text-orange-700 bg-white">未托管</option>
+                                    <option value="deleted" {% if product.status=="deleted" %}selected{% endif %}
+                                        class="text-gray-700 bg-white">删除</option>
                                 </select>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
