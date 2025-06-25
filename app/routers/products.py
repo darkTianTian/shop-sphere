@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select, func
@@ -6,15 +6,23 @@ import math
 from datetime import datetime
 import json
 from pydantic import BaseModel
+import logging
+import os
 
 from app.auth.decorators import require_admin
 from app.internal.db import engine
 from app.models.product import Product, ProductArticle, ArticleStatus, ProductStatus
 from app.routers.admin import templates as shared_templates
+from app.services.xiaohongshu.product_client import ProductClient
+from app.scripts.fetch_products import fetch_products_task
+from app.utils.logger import setup_logger
 
 router = APIRouter(prefix="/admin", tags=["products"])
 
 templates: Jinja2Templates = shared_templates  # reuse filters
+
+# 获取环境信息
+SERVER_ENV = os.environ.get('SERVER_ENVIRONMENT', 'LOCAL')
 
 class ProductStatusUpdate(BaseModel):
     status: ProductStatus
@@ -119,3 +127,22 @@ async def list_products_api(current_user: dict = Depends(require_admin())):
             "image_url": p.images[0].get('link') + '?imageView2/2/w/80/format/webp/q/75' if p.images else None,
             "first_sku_id": p.first_sku_id
         } for p in products]
+
+@router.post("/products/sync")
+async def sync_products(background_tasks: BackgroundTasks, current_user: dict = Depends(require_admin())):
+    """同步商品数据"""
+    try:
+        # 初始化商品服务
+        product_service = ProductClient()
+        
+        # 设置logger
+        logger = setup_logger(
+            name=f'fetch_products_{SERVER_ENV.lower()}',
+            level=logging.INFO
+        )
+        
+        # 在后台任务中执行同步
+        background_tasks.add_task(fetch_products_task, product_service, logger)
+        return {"message": "商品同步任务已启动"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
