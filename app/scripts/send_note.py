@@ -55,9 +55,6 @@ except Exception as e:
 def process_pending_articles():
     """处理待发布的文章"""
     current_time = int(time.time() * 1000)
-    logger.warning(f"test warning")
-    logger.error(f"test error")
-    logger.info(f"test info")
 
     try:
         note_service = NoteService(logger=logger)

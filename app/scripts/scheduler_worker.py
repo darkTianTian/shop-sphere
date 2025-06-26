@@ -42,7 +42,7 @@ class SchedulerWorker:
         try:
             async with get_async_session() as session:
                 # 获取发布配置
-                config = (await session.execute(select(PublishConfig))).scalar_one_or_none()
+                config = (await session.execute(select(PublishConfig))).scalars().first()
                 if not config or not config.is_enabled:
                     logger.info("发布配置未启用，跳过文章生成")
                     return

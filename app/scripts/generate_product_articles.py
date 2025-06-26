@@ -60,11 +60,11 @@ class ProductArticleGenerator:
             
             for product in products:
                 # 查询商品是否存在待发布视频
-                pending_videos_query = select(Video).where(
+                pending_videos_query = select(func.count(Video.id)).where(
                     Video.item_id == product.item_id,
                     Video.is_enabled == True
                 )
-                has_video = (await session.execute(pending_videos_query)).scalar_one_or_none() is not None
+                has_video = (await session.execute(pending_videos_query)).scalar_one() > 0
                 if not has_video:
                     self.logger.info(f"商品 {product.item_id} 没有待发布视频，跳过文章生成")
                     continue
@@ -77,10 +77,10 @@ class ProductArticleGenerator:
                 existing_count += (await session.execute(existing_articles_query)).scalar_one()
                 
                 products_needing_articles.append(product)
-            
+                
             self.logger.info(f"找到 {len(products)} 个符合条件的商品，其中 {len(products_needing_articles)} 个需要生成文章")
             return products_needing_articles, existing_count
-            
+                
         except Exception as e:
             self.logger.error(f"查询需要生成文章的商品失败: {str(e)}")
             return [], 0
@@ -219,7 +219,7 @@ class ProductArticleGenerator:
         try:
             async with get_async_session() as session:
                 # 获取发布配置
-                config = (await session.execute(select(PublishConfig))).scalar_one_or_none()
+                config = (await session.execute(select(PublishConfig))).scalars().first()
                 if not config or not config.is_enabled:
                     self.logger.info("发布配置未启用，跳过文章生成")
                     return
