@@ -78,13 +78,13 @@ class ModelStrategy:
         """
         model_configs = {
             "deepseek-chat": {
-                "max_tokens": 2000,
-                "temperature": 0.7,
+                "max_tokens": 1500,
+                "temperature": 1.4,
                 "description": "标准聊天模型，响应快速"
             },
             "deepseek-reasoner": {
-                "max_tokens": 4000,
-                "temperature": 0.6,
+                "max_tokens": 2000,
+                "temperature": 1.4,
                 "description": "推理模型，成本更低，适合复杂任务"
             }
         }

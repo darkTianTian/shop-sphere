@@ -20,6 +20,7 @@ RUN mkdir -p /var/log/nginx /var/log/supervisor && \
     touch /var/log/supervisor/send_note_out.log /var/log/supervisor/send_note_err.log && \
     touch /var/log/supervisor/fetch_products_out.log /var/log/supervisor/fetch_products_err.log && \
     touch /var/log/supervisor/generate_articles_out.log /var/log/supervisor/generate_articles_err.log && \
+    touch /var/log/supervisor/scheduler_worker_out.log /var/log/supervisor/scheduler_worker_err.log && \
     touch /var/log/supervisor/nginx.log /var/log/supervisor/nginx-error.log && \
     touch /var/log/supervisor/fastapi.log /var/log/supervisor/fastapi-error.log && \
     touch /var/log/supervisor/supervisord.log && \
@@ -32,6 +33,7 @@ RUN mkdir -p /etc/supervisor/conf.d
 COPY deploy/supervisor/send_note.conf /etc/supervisor/conf.d/
 COPY deploy/supervisor/fetch_products.conf /etc/supervisor/conf.d/
 COPY deploy/supervisor/generate_articles.conf /etc/supervisor/conf.d/
+COPY deploy/supervisor/scheduler_worker.conf /etc/supervisor/conf.d/
 COPY deploy/supervisor/supervisord.local.conf /etc/supervisor/supervisord.conf
 
 # Copy nginx configuration

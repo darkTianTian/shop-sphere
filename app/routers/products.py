@@ -145,4 +145,5 @@ async def sync_products(background_tasks: BackgroundTasks, current_user: dict = 
         background_tasks.add_task(fetch_products_task, product_service, logger)
         return {"message": "商品同步任务已启动"}
     except Exception as e:
+        logger.error(f"同步商品数据失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

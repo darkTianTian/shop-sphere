@@ -21,6 +21,8 @@ anyio==4.9.0
     #   openai
     #   starlette
     #   watchfiles
+apscheduler==3.11.0
+    # via -r requirements-base.txt
 argon2-cffi==23.1.0
     # via pwdlib
 argon2-cffi-bindings==21.2.0
@@ -103,7 +105,7 @@ makefun==1.16.0
     # via fastapi-users
 markupsafe==3.0.2
     # via jinja2
-openai==1.90.0
+openai==1.91.0
     # via -r requirements-base.txt
 oss2==2.19.1
     # via -r requirements-base.txt
@@ -130,7 +132,7 @@ pyjwt[crypto]==2.10.1
     # via fastapi-users
 pymysql==1.1.1
     # via -r requirements-base.txt
-python-dotenv==1.1.0
+python-dotenv==1.1.1
     # via
     #   -r requirements-base.txt
     #   uvicorn
@@ -183,6 +185,8 @@ typing-extensions==4.14.0
     #   typing-inspection
 typing-inspection==0.4.1
     # via pydantic
+tzlocal==5.3.1
+    # via apscheduler
 urllib3==2.5.0
     # via requests
 uvicorn[standard]==0.34.3

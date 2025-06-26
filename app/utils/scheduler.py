@@ -4,10 +4,11 @@ from datetime import datetime, timedelta
 from typing import Callable, Optional
 import pytz
 from schedule import Scheduler
-
+import requests
+import os
 
 class TaskScheduler:
-    """任务调度器"""
+    """任务调度器 - 用于固定间隔任务，动态任务由独立的调度器进程处理"""
     
     def __init__(self, timezone: str = 'Asia/Shanghai', logger: Optional[logging.Logger] = None):
         self.timezone = pytz.timezone(timezone)
@@ -31,6 +32,12 @@ class TaskScheduler:
                 return
                 
             self.logger.info(f"⏰ 下次执行时间: {next_run.strftime('%Y-%m-%d %H:%M:%S')}")
+
+    def update_article_generation_job(self):
+        """更新文章生成任务的执行时间 - 通过独立调度器处理"""
+        # 这里我们不再直接管理文章生成任务
+        # 它会由独立的调度器进程处理
+        pass
         
     def add_minute_task(self, task_func: Callable, *args, **kwargs):
         """添加每分钟执行的任务"""
@@ -86,7 +93,7 @@ class TaskScheduler:
         self._running = True
         self.logger.info("任务调度器启动")
         
-        # 等待到下一分钟的整点再开始
+        # 等待到下一分钟的整点再开始schedule任务
         self.wait_for_next_minute()
         
         try:
@@ -109,3 +116,6 @@ class TaskScheduler:
         """清除所有任务"""
         self.scheduler.clear()
         self.logger.info("已清除所有任务") 
+
+# 创建全局调度器实例
+task_scheduler = TaskScheduler() 

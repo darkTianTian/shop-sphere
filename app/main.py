@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
 import os
 
 from app.routers import (
@@ -11,14 +12,20 @@ from app.routers import (
 from app.settings import load_settings
 from app.middleware.admin_auth import AdminAuthMiddleware
 
+# 加载配置
+settings = load_settings()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期管理"""
+    yield  # 应用运行期间
+
 app = FastAPI(
     title="ShopSphere API",
     description="ShopSphere 电商管理系统 API",
     version="0.1.0",
+    lifespan=lifespan
 )
-
-# 加载配置
-settings = load_settings()
 
 # 添加管理后台权限验证中间件（最外层）
 app.add_middleware(AdminAuthMiddleware)

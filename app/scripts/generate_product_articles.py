@@ -85,6 +85,8 @@ class ProductArticleGenerator:
                         self.logger.info(f"商品 {product.item_id} 没有待发布视频，跳过文章生成")
                 
                 self.logger.info(f"找到 {len(products)} 个符合条件的商品，其中 {len(products_needing_articles)} 个需要生成文章")
+                self.logger.error(f"test error")
+                self.logger.warning(f"test warning")
                 return products_needing_articles
                 
         except Exception as e:
