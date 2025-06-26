@@ -4,19 +4,21 @@
 每分钟执行一次，为符合条件的商品生成文章草稿
 """
 
+from itertools import cycle
 import os
+import random
 import sys
 import time
 import traceback
-from datetime import datetime
-from typing import List, Optional
+from datetime import datetime, timedelta
+from typing import List, Optional, Tuple
 
-from app.models.video import Video, VideoStatus
+from app.models.video import Video
 
 # 添加项目根目录到 Python 路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func
 from app.internal.db import engine
 from app.models.product import Product, ProductArticle, ArticleStatus, ProductStatus
 from app.services.ai_service import DeepSeekAIService
@@ -42,7 +44,7 @@ class ProductArticleGenerator:
         self.generated_count = 0
         self.error_count = 0
     
-    def get_products_needing_articles(self) -> List[Product]:
+    def get_products_needing_articles(self) -> Tuple[List[Product], int]:
         """
         获取需要生成文章的商品列表
         且没有 DRAFT/PENDING_REVIEW/PENDING_PUBLISH 状态的文章
@@ -58,40 +60,41 @@ class ProductArticleGenerator:
                 
                 # 过滤出需要生成文章的商品
                 products_needing_articles = []
+                existing_count = 0
                 
                 for product in products:
-                    # 检查是否已有指定状态的文章
-                    existing_articles_query = select(ProductArticle).where(
-                        ProductArticle.item_id == product.item_id,
-                        ProductArticle.status.in_([
-                            ArticleStatus.DRAFT,
-                            ArticleStatus.PENDING_REVIEW,
-                            ArticleStatus.PENDING_PUBLISH
-                        ])
-                    )
-                    existing_articles = session.exec(existing_articles_query).all()
-                    
                     # 查询商品是否存在待发布视频
                     pending_videos_query = select(Video).where(
                         Video.item_id == product.item_id,
                         Video.is_enabled == True
                     )
                     has_video = session.exec(pending_videos_query).first() is not None
-
-                    # 如果没有这些状态的文章，则需要生成
-                    if not existing_articles and has_video:
-                        products_needing_articles.append(product)
-                    elif not has_video:
+                    if not has_video:
                         self.logger.info(f"商品 {product.item_id} 没有待发布视频，跳过文章生成")
+                        continue
+
+                    # 检查是否已有指定状态的文章
+                    existing_articles_query = select(func.count(ProductArticle.id)).where(
+                        ProductArticle.item_id == product.item_id,
+                        ProductArticle.status == ArticleStatus.PENDING_PUBLISH
+                        # ProductArticle.status.in_([
+                        #     ArticleStatus.DRAFT,
+                        #     ArticleStatus.PENDING_REVIEW,
+                        #     ArticleStatus.PENDING_PUBLISH
+                        # ])
+                    )
+                    existing_count += session.exec(existing_articles_query).one()
+                    
+                    products_needing_articles.append(product)
                 
                 self.logger.info(f"找到 {len(products)} 个符合条件的商品，其中 {len(products_needing_articles)} 个需要生成文章")
                 self.logger.error(f"test error")
                 self.logger.warning(f"test warning")
-                return products_needing_articles
+                return products_needing_articles, existing_count
                 
         except Exception as e:
             self.logger.error(f"查询需要生成文章的商品失败: {str(e)}")
-            return []
+            return [], 0
     
     def generate_article_with_ai(self, product: Product) -> Optional[dict]:
         """
@@ -236,30 +239,34 @@ class ProductArticleGenerator:
                 self.error_count = 0
                 
                 # 获取需要生成文章的商品
-                products = self.get_products_needing_articles()
-                
-                if not products:
+                products, existing_count = self.get_products_needing_articles()
+                need_generate_count = config.daily_publish_limit - existing_count
+                self.logger.info(f"每日上限: {config.daily_publish_limit}, 已存在文章的商品数量: {existing_count}, 需要生成文章的商品数量: {need_generate_count}")
+                if need_generate_count <= 0:
                     self.logger.info("没有需要生成文章的商品")
                     return
                 
                 # 计算发布时间点
-                publish_times = config.calculate_publish_times(len(products))
+                publish_times = config.calculate_publish_times(need_generate_count)
                 
                 # 处理每个商品
-                for product, publish_time in zip(products, publish_times):
+                for product, publish_time in zip(cycle(products), publish_times):
+                    # 这里对publish_time进行一个随机偏移，偏移范围为+-120s
+                    p_time = publish_time + timedelta(seconds=random.randint(-120, 120))
+                    self.logger.info(f"商品 {product.item_id} 标准发布时间: {publish_time}, 实际发布时间: {p_time}")
                     article_content = self.generate_article_with_ai(product)
                     if not article_content:
                         self.error_count += 1
                         continue
                     
                     # 设置预发布时间
-                    article_content["pre_publish_time"] = int(publish_time.timestamp())
+                    article_content["pre_publish_time"] = int(p_time.timestamp())
                     
-                    # 保存到数据库
-                    if self.save_article_to_database(product, article_content):
-                        self.generated_count += 1
-                    else:
-                        self.error_count += 1
+                    # # 保存到数据库
+                    # if self.save_article_to_database(product, article_content):
+                    #     self.generated_count += 1
+                    # else:
+                    #     self.error_count += 1
                     
                     # 添加短暂延迟，避免过于频繁的数据库操作
                     time.sleep(1)

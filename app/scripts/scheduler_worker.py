@@ -12,52 +12,13 @@ from sqlmodel import Session, select
 from app.internal.db import engine
 from app.models.publish_config import PublishConfig
 from app.scripts.generate_product_articles import ProductArticleGenerator
+from app.settings.logging_config import setup_worker_logging
 
 # 获取项目根目录
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# 配置日志目录
-LOG_DIR = os.path.join(BASE_DIR, 'logs')
-os.makedirs(LOG_DIR, exist_ok=True)
-
-# 配置日志格式
-log_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s')
-
-# 创建一个处理器，将 INFO 级别日志输出到 stdout
-stdout_handler = logging.StreamHandler(sys.stdout)
-stdout_handler.setLevel(logging.INFO)
-stdout_handler.addFilter(lambda record: record.levelno == logging.INFO)  # 只允许 INFO 级别
-stdout_handler.setFormatter(log_format)
-
-# 创建一个处理器，将 WARNING 及以上级别日志输出到 stderr
-stderr_handler = logging.StreamHandler(sys.stderr)
-stderr_handler.setLevel(logging.WARNING)  # WARNING 及以上级别
-stderr_handler.setFormatter(log_format)
-
-# 创建文件处理器
-file_handler = logging.FileHandler(os.path.join(LOG_DIR, 'scheduler.log'))
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(log_format)
-
-# 配置根日志器
-root_logger = logging.getLogger()
-root_logger.setLevel(logging.INFO)
-root_logger.addHandler(stdout_handler)
-root_logger.addHandler(stderr_handler)
-root_logger.addHandler(file_handler)
-
-# 获取调度器专用的日志器
-logger = logging.getLogger('scheduler_worker')
-
-# 配置 generate_articles 日志器
-generate_articles_logger = logging.getLogger('generate_articles')
-generate_articles_logger.setLevel(logging.INFO)
-# 清除可能存在的旧处理器
-generate_articles_logger.handlers.clear()
-# 只添加对应级别的处理器
-generate_articles_logger.addHandler(stdout_handler)  # INFO 级别
-generate_articles_logger.addHandler(stderr_handler)  # WARNING 及以上级别
-generate_articles_logger.propagate = False  # 防止日志传播到根日志器
+# 设置日志
+logger, generate_articles_logger = setup_worker_logging(BASE_DIR)
 
 class SchedulerWorker:
     def __init__(self, timezone: str = 'Asia/Shanghai'):
@@ -171,9 +132,6 @@ class SchedulerWorker:
             logger.info("调度器已停止")
 
 def main():
-    # 确保日志目录存在
-    os.makedirs(LOG_DIR, exist_ok=True)
-    
     # 创建并启动调度器
     worker = SchedulerWorker()
     worker.start()
