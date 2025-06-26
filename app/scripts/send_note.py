@@ -24,34 +24,43 @@ except ImportError as e:
     error_msg = f"导入模块失败: {str(e)}\n{traceback.format_exc()}"
     sys.exit(1)
 
-# 设置日志
-base_logger = setup_logger(
-    name='send_note',
-    log_file=None,  # 不输出到文件，只输出到控制台，由supervisor管理
-    level=20  # INFO
-)
-
 # 获取环境信息
 SERVER_ENV = os.environ.get('SERVER_ENVIRONMENT', 'LOCAL')
-base_logger.info(f"Starting send_note in {SERVER_ENV} environment")
-base_logger.info(f"Current PYTHONPATH: {os.environ.get('PYTHONPATH', 'Not set')}")
-base_logger.info(f"Current working directory: {os.getcwd()}")
+
+# 设置日志
+try:
+    logger = setup_logger(
+        name='send_note',
+        log_file=None,  # 不输出到文件，让supervisor处理
+        level=logging.INFO
+    )
+except Exception as e:
+    error_msg = f"设置日志失败: {str(e)}\n{traceback.format_exc()}"
+    print(error_msg, file=sys.stderr)  # 直接打印到stderr
+    sys.exit(1)
+
+logger.info(f"Starting send_note in {SERVER_ENV} environment")
+logger.info(f"Current PYTHONPATH: {os.environ.get('PYTHONPATH', 'Not set')}")
+logger.info(f"Current working directory: {os.getcwd()}")
 
 # 通过settings.load_settings()动态加载配置
 try:
     settings = load_settings()
-    base_logger.info("Successfully loaded settings")
+    logger.info("Successfully loaded settings")
 except Exception as e:
     error_msg = f"加载设置失败: {str(e)}\n{traceback.format_exc()}"
-    base_logger.error(error_msg)
+    logger.error(error_msg)
     sys.exit(1)
 
 def process_pending_articles():
     """处理待发布的文章"""
     current_time = int(time.time() * 1000)
+    logger.warning(f"test warning")
+    logger.error(f"test error")
+    logger.info(f"test info")
 
     try:
-        note_service = NoteService(logger=base_logger)
+        note_service = NoteService(logger=logger)
         
         with Session(engine) as session:
             # 查询预发布时间小于当前时间的文章，按预发布时间递增排序
@@ -65,18 +74,18 @@ def process_pending_articles():
             # 查询5条数据
             articles = session.exec(query).all()
 
-            base_logger.info(f"查询到{len(articles)}条待发布文章")
+            logger.info(f"查询到{len(articles)}条待发布文章")
             
             for article in articles:
                 try:
                     # 查询关联的商品
                     product = session.exec(select(Product).where(Product.item_id == article.item_id)).first()
                     if not product:
-                        base_logger.error(f"文章 {article.id} 找不到关联的商品: {article.item_id}")
+                        logger.error(f"文章 {article.id} 找不到关联的商品: {article.item_id}")
                         continue
                     
                     # 发送笔记
-                    base_logger.info(f"开始发送文章 {article.id}， 商品 {product.item_id}， 标题 {article.title} 到小红书")
+                    logger.info(f"开始发送文章 {article.id}， 商品 {product.item_id}， 标题 {article.title} 到小红书")
                     #TODO: 这里用了商品的名称，而不是sku的名称
                     response, video = note_service.send_note(article, product.first_sku_id, product.item_name)
                     
@@ -103,32 +112,32 @@ def process_pending_articles():
                         session.add(mapping)
                         session.commit()
                         
-                        base_logger.info(f"文章-【{article.id}】， 商品-【{product.item_id}】， 标题-【{article.title}】 发布成功")
+                        logger.info(f"文章-【{article.id}】， 商品-【{product.item_id}】， 标题-【{article.title}】 发布成功")
                     else:
                         if not video:
-                            base_logger.info(f"文章-【{article.id}】， 商品-【{product.item_id}】， 标题-【{article.title}】 发布终止: 没有找到可用视频")
+                            logger.info(f"文章-【{article.id}】， 商品-【{product.item_id}】， 标题-【{article.title}】 发布终止: 没有找到可用视频")
                             continue
                         error_msg = response.get("message", "未知错误")
-                        base_logger.error(f"文章-【{article.id}】， 商品-【{product.item_id}】， 标题-【{article.title}】 发布失败: {error_msg}")
+                        logger.error(f"文章-【{article.id}】， 商品-【{product.item_id}】， 标题-【{article.title}】 发布失败: {error_msg}")
                     
                 except Exception as e:
-                    base_logger.error(f"处理文章-{article.id}， 商品-{product.item_id}， 标题-{article.title} 时出错: {str(e)}")
+                    logger.error(f"处理文章-{article.id}， 商品-{product.item_id}， 标题-{article.title} 时出错: {str(e)}")
                     continue
             
     except Exception as e:
-        base_logger.error(f"处理待发布文章时出错: {str(e)}")
+        logger.error(f"处理待发布文章时出错: {str(e)}")
     finally:
         note_service.close()
 
 def main():
     """主函数"""
-    base_logger.info("笔记发送服务启动")
+    logger.info("笔记发送服务启动")
     
     while True:
         try:
             process_pending_articles()
         except Exception as e:
-            base_logger.error(f"处理文章时发生错误: {str(e)}")
+            logger.error(f"处理文章时发生错误: {str(e)}")
         
         # 等待一段时间再次检查
         time.sleep(60)  # 每分钟检查一次
@@ -138,5 +147,5 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         error_msg = f"Main function failed: {str(e)}\n{traceback.format_exc()}"
-        base_logger.error(error_msg)
+        logger.error(error_msg)
         sys.exit(1)

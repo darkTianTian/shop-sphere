@@ -4,6 +4,14 @@
 #
 #    pip-compile --output-file=requirements.txt requirements-base.txt
 #
+aiohappyeyeballs==2.6.1
+    # via aiohttp
+aiohttp==3.12.13
+    # via -r requirements-base.txt
+aiomysql==0.2.0
+    # via -r requirements-base.txt
+aiosignal==1.3.2
+    # via aiohttp
 aliyun-python-sdk-core==2.16.0
     # via
     #   -r requirements-base.txt
@@ -27,6 +35,8 @@ argon2-cffi==23.1.0
     # via pwdlib
 argon2-cffi-bindings==21.2.0
     # via argon2-cffi
+attrs==25.3.0
+    # via aiohttp
 bcrypt==4.3.0
     # via
     #   passlib
@@ -73,6 +83,10 @@ fastapi-users-db-sqlmodel==0.3.0
     # via -r requirements-base.txt
 ffmpeg-python==0.2.0
     # via -r requirements-base.txt
+frozenlist==1.7.0
+    # via
+    #   aiohttp
+    #   aiosignal
 future==1.0.0
     # via ffmpeg-python
 greenlet==3.2.3
@@ -93,6 +107,7 @@ idna==3.10
     #   email-validator
     #   httpx
     #   requests
+    #   yarl
 itsdangerous==2.2.0
     # via -r requirements-base.txt
 jinja2==3.1.6
@@ -105,12 +120,20 @@ makefun==1.16.0
     # via fastapi-users
 markupsafe==3.0.2
     # via jinja2
+multidict==6.5.1
+    # via
+    #   aiohttp
+    #   yarl
 openai==1.91.0
     # via -r requirements-base.txt
 oss2==2.19.1
     # via -r requirements-base.txt
 passlib[bcrypt]==1.7.4
     # via -r requirements-base.txt
+propcache==0.3.2
+    # via
+    #   aiohttp
+    #   yarl
 pwdlib[argon2,bcrypt]==0.2.1
     # via fastapi-users
 pyasn1==0.6.1
@@ -131,7 +154,9 @@ pydantic-core==2.33.2
 pyjwt[crypto]==2.10.1
     # via fastapi-users
 pymysql==1.1.1
-    # via -r requirements-base.txt
+    # via
+    #   -r requirements-base.txt
+    #   aiomysql
 python-dotenv==1.1.1
     # via
     #   -r requirements-base.txt
@@ -199,3 +224,5 @@ websockets==15.0.1
     # via uvicorn
 xmltodict==0.14.2
     # via -r requirements-base.txt
+yarl==1.20.1
+    # via aiohttp

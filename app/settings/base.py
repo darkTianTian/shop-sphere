@@ -16,6 +16,11 @@ class DatabaseSettings:
         """获取数据库连接URL"""
         return f"mysql+pymysql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
 
+    @property
+    def async_url(self) -> str:
+        """获取异步数据库URL"""
+        return f"mysql+aiomysql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
+
 class BaseSettings:
     """基础配置类"""
     TIMEZONE = 'Asia/Shanghai'

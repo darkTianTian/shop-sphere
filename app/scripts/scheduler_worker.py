@@ -1,140 +1,136 @@
 #!/usr/bin/env python3
+"""
+自动生成商品文章的定时脚本
+每分钟执行一次，为符合条件的商品生成文章草稿
+"""
+
 import os
 import sys
-import logging
-from datetime import datetime, time as datetime_time
 import time
+import traceback
+from datetime import datetime, timedelta
+import asyncio
 import pytz
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from sqlmodel import Session, select
+from sqlmodel import select
+import logging
 
-from app.internal.db import engine
+# 添加项目根目录到 Python 路径
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from app.internal.db import get_async_session
 from app.models.publish_config import PublishConfig
 from app.scripts.generate_product_articles import ProductArticleGenerator
-from app.settings.logging_config import setup_worker_logging
-
-# 获取项目根目录
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from app.utils.logger import setup_logger
 
 # 设置日志
-logger, generate_articles_logger = setup_worker_logging(BASE_DIR)
+logger = setup_logger(
+    name='scheduler_worker',
+    log_file=None,  # 不输出到文件，只输出到控制台
+    level=logging.INFO  # INFO级别
+)
 
 class SchedulerWorker:
     def __init__(self, timezone: str = 'Asia/Shanghai'):
-        self.timezone = pytz.timezone(timezone)
-        # 配置 APScheduler 以支持 Docker 环境
-        self.scheduler = BackgroundScheduler(
-            timezone=timezone,
-            job_defaults={
-                'coalesce': True,  # 合并延迟的任务
-                'max_instances': 1,  # 最大实例数
-                'misfire_grace_time': 60  # 任务错过执行时间的容错范围（秒）
-            }
-        )
-        self.article_job_id = 'generate_articles'
-        self.config_check_job_id = 'check_config'
-        self._last_generate_time = None
+        self.timezone = timezone
+        self.scheduler = AsyncIOScheduler(timezone=timezone)
+        self.generator = ProductArticleGenerator(logger=logger)
         
-    def check_config_updates(self):
-        """检查配置是否有更新"""
+    async def check_and_run_task(self):
+        """检查配置并执行任务"""
         try:
-            with Session(engine) as session:
-                config = session.exec(select(PublishConfig)).first()
-                if not config:
+            async with get_async_session() as session:
+                # 获取发布配置
+                config = (await session.execute(select(PublishConfig))).scalar_one_or_none()
+                if not config or not config.is_enabled:
+                    logger.info("发布配置未启用，跳过文章生成")
                     return
                 
-                # 如果生成时间有变化，重新加载任务
-                if self._last_generate_time != config.generate_time:
-                    logger.info(f"检测到生成时间更新: {config.generate_time.strftime('%H:%M')}")
-                    self._last_generate_time = config.generate_time
-                    self.update_article_generation_job()
+                # 检查是否在生成时间
+                now = datetime.now(pytz.timezone(self.timezone))
+                generate_time = config.generate_time
+                current_time = now.time()
+                
+                # 如果当前时间在生成时间的前后5分钟内，执行生成任务
+                time_diff = abs((current_time.hour * 60 + current_time.minute) - 
+                              (generate_time.hour * 60 + generate_time.minute))
+                
+                if time_diff <= 5:  # 5分钟内
+                    logger.info(f"当前时间 {current_time} 接近生成时间 {generate_time}，开始执行生成任务")
+                    await self.generator.run_generation_task()
+                else:
+                    logger.info(f"当前时间 {current_time} 不在生成时间 {generate_time} 附近，跳过执行")
+                    
         except Exception as e:
-            logger.error(f"检查配置更新失败: {str(e)}")
-        
-    def update_article_generation_job(self):
-        """更新文章生成任务的执行时间"""
-        with Session(engine) as session:
-            config = session.exec(select(PublishConfig)).first()
-            if not config:
-                return
-            
-            # 获取生成时间
-            generate_time = config.generate_time
-            self._last_generate_time = generate_time
-            
-            # 如果任务已存在，先移除
-            if self.scheduler.get_job(self.article_job_id):
-                self.scheduler.remove_job(self.article_job_id)
-            
-            # 创建新任务
-            if config.is_enabled:
-                trigger = CronTrigger(
-                    hour=generate_time.hour,
-                    minute=generate_time.minute,
-                    timezone=self.timezone
-                )
-                
-                def run_task():
-                    generator = ProductArticleGenerator(logger=generate_articles_logger)
-                    generator.run_generation_task()
-                
-                self.scheduler.add_job(
-                    run_task,
-                    trigger=trigger,
-                    id=self.article_job_id,
-                    name='Generate Product Articles',
-                    max_instances=1,
-                    coalesce=True
-                )
-                
-                logger.info(f"已更新文章生成任务，执行时间: {generate_time.strftime('%H:%M')}")
-            else:
-                logger.info("文章生成任务已禁用")
+            error_msg = f"执行定时任务失败: {str(e)}\n{traceback.format_exc()}"
+            logger.error(error_msg)
     
-    def start(self):
+    async def start(self):
         """启动调度器"""
         try:
-            if not self.scheduler.running:
-                # 初始化任务
-                self.update_article_generation_job()
+            # 添加每分钟执行的任务
+            self.scheduler.add_job(
+                self.check_and_run_task,
+                CronTrigger(minute='*'),  # 每分钟执行一次
+                id='generate_articles',
+                replace_existing=True
+            )
+            
+            # 启动调度器
+            self.scheduler.start()
+            logger.info("调度器已启动，每分钟检查一次是否需要生成文章")
+            
+            # 保持运行直到收到停止信号
+            while True:
+                await asyncio.sleep(60)
                 
-                # 添加配置检查任务（每分钟检查一次）
-                self.scheduler.add_job(
-                    self.check_config_updates,
-                    'interval',
-                    minutes=1,
-                    id=self.config_check_job_id,
-                    name='Check Configuration Updates'
-                )
-                
-                # 启动调度器
-                self.scheduler.start()
-                logger.info("调度器已启动")
-                
-                # 保持进程运行
-                try:
-                    while True:
-                        self.scheduler.print_jobs()
-                        time.sleep(60)  # 每分钟打印一次任务状态
-                except KeyboardInterrupt:
-                    logger.info("收到中断信号")
-                    self.stop()
         except Exception as e:
-            logger.error(f"调度器运行异常: {str(e)}")
-            self.stop()
-            sys.exit(1)
-    
+            error_msg = f"启动调度器失败: {str(e)}\n{traceback.format_exc()}"
+            logger.error(error_msg)
+            raise
+        
     def stop(self):
         """停止调度器"""
         if self.scheduler.running:
             self.scheduler.shutdown()
             logger.info("调度器已停止")
 
-def main():
-    # 创建并启动调度器
-    worker = SchedulerWorker()
-    worker.start()
+async def main_async():
+    """异步主函数"""
+    try:
+        logger.info("启动商品文章生成定时任务")
+        worker = SchedulerWorker()
+        await worker.check_and_run_task()
+    except Exception as e:
+        error_msg = f"任务执行失败: {str(e)}\n{traceback.format_exc()}"
+        logger.error(error_msg)
+        sys.exit(1)
 
-if __name__ == '__main__':
+def main():
+    """主函数"""
+    try:
+        logger.info("启动商品文章生成定时任务")
+        # 创建新的事件循环并设为当前
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        # 在事件循环就绪后再创建 worker（内部对象会绑定到正确的 loop）
+        worker = SchedulerWorker()
+        
+        try:
+            # 运行调度器
+            loop.run_until_complete(worker.start())
+        except KeyboardInterrupt:
+            logger.info("收到中断信号，正在停止定时任务...")
+            worker.stop()
+        finally:
+            loop.close()
+            
+    except Exception as e:
+        error_msg = f"定时任务启动失败: {str(e)}\n{traceback.format_exc()}"
+        logger.error(error_msg)
+        sys.exit(1)
+
+if __name__ == "__main__":
     main() 

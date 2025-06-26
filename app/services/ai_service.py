@@ -6,7 +6,7 @@ AI 服务模块
 import os
 import json
 import logging
-from openai import OpenAI
+from openai import OpenAI, AsyncOpenAI
 from typing import Optional, Dict, Any
 from datetime import datetime, time
 from string import Template
@@ -99,9 +99,20 @@ class DeepSeekAIService:
         self.logger = logger or logging.getLogger(__name__)
         self.config = DeepSeekConfig
         self.model_strategy = ModelStrategy()
+        self._client = None
         
         if not self.config.is_configured():
             self.logger.error("DeepSeek AI 未配置，无法使用AI生成功能")
+    
+    @property
+    def client(self) -> AsyncOpenAI:
+        """获取异步OpenAI客户端"""
+        if self._client is None:
+            self._client = AsyncOpenAI(
+                api_key=self.config.get_api_key(),
+                base_url=self.config.get_base_url()
+            )
+        return self._client
     
     def generate_product_article(self, product_data: Dict[str, Any]) -> Optional[Dict[str, str]]:
         """
@@ -151,8 +162,8 @@ class DeepSeekAIService:
             
             self.logger.info(f"调用 DeepSeek API - 模型: {model_name} ({model_config['description']}) - 北京时间: {beijing_time}")
             
+            # 使用同步客户端调用API
             client = OpenAI(api_key=self.config.get_api_key(), base_url=self.config.get_base_url())
-            self.logger.info(f"base_url: {self.config.get_base_url()}")
             response = client.chat.completions.create(
                 model=model_name,
                 messages=[{"role": "user", "content": prompt}],
@@ -162,7 +173,7 @@ class DeepSeekAIService:
                 stream=False
             )
             
-            self.logger.info(f"API 调用成功 - 模型: {model_name}, respnose: {response}")
+            self.logger.info(f"API 调用成功 - 模型: {model_name}, response: {response}")
             
             # 解析响应
             article_content = self._parse_ai_response(response.choices[0].message.content)
@@ -291,4 +302,72 @@ class DeepSeekAIService:
         except json.JSONDecodeError:
             # 如果不是 JSON 格式，尝试其他解析方式
             self.logger.warning("AI 响应不是有效的 JSON 格式")
+            return None
+    
+    async def generate_product_article_async(self, product_data: Dict[str, Any]) -> Optional[Dict[str, str]]:
+        """
+        为商品生成文章内容（异步版本）
+        
+        Args:
+            product_data: 商品数据字典，包含商品信息
+            
+        Returns:
+            包含文章内容的字典 {"title": "", "content": "", "tags": ""}
+        """
+        try:
+            if not self.config.is_configured():
+                self.logger.error("DeepSeek AI 未配置，无法生成文章")
+                return None
+            
+            return await self._call_deepseek_api_async(product_data)
+            
+        except Exception as e:
+            self.logger.error(f"生成文章失败: {str(e)}")
+            return None
+    
+    async def _call_deepseek_api_async(self, product_data: Dict[str, Any]) -> Optional[Dict[str, str]]:
+        """
+        异步调用 DeepSeek AI API 生成文章
+        
+        Args:
+            product_data: 商品数据
+            
+        Returns:
+            生成的文章内容
+        """
+        try:
+            # 构建提示词
+            prompt = self._build_article_prompt(product_data)
+            if not prompt:
+                self.logger.error("无法构建提示词")
+                return None
+            
+            # 选择最优模型
+            model_name = self.model_strategy.get_optimal_model()
+            model_config = self.model_strategy.get_model_info(model_name)
+            
+            # 获取北京时间用于日志
+            beijing_tz = pytz.timezone('Asia/Shanghai')
+            beijing_time = datetime.now(beijing_tz).strftime('%H:%M:%S')
+            
+            self.logger.info(f"调用 DeepSeek API - 模型: {model_name} ({model_config['description']}) - 北京时间: {beijing_time}")
+            
+            # 使用异步客户端调用API
+            response = await self.client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=model_config["max_tokens"],
+                temperature=model_config["temperature"],
+                response_format={"type": "json_object"},
+                stream=False
+            )
+            
+            self.logger.info(f"API 调用成功 - 模型: {model_name}, response: {response}")
+            
+            # 解析响应
+            article_content = self._parse_ai_response(response.choices[0].message.content)
+            return article_content
+            
+        except Exception as e:
+            self.logger.error(f"调用 DeepSeek AI API 失败: {str(e)}")
             return None 

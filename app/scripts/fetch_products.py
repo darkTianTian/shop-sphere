@@ -20,19 +20,26 @@ from app.internal.db import engine
 # 获取环境信息
 SERVER_ENV = os.environ.get('SERVER_ENVIRONMENT', 'LOCAL')
 
-base_logger = setup_logger(
-    name=f'fetch_products_{SERVER_ENV.lower()}',
-    level=logging.INFO
-)
+# 设置日志记录器
+try:
+    logger = setup_logger(
+        name=f'fetch_products_{SERVER_ENV.lower()}',
+        log_file=None,  # 不使用文件输出，让supervisor处理
+        level=logging.INFO
+    )
+except Exception as e:
+    error_msg = f"设置日志失败: {str(e)}\n{traceback.format_exc()}"
+    print(error_msg, file=sys.stderr)  # 直接打印到stderr
+    sys.exit(1)
 
 # 通过settings.load_settings()动态加载配置
 try:
     from app.settings import load_settings
     settings = load_settings()
-    base_logger.info("Successfully loaded settings")
+    logger.info("Successfully loaded settings")
 except Exception as e:
     error_msg = f"加载设置失败: {str(e)}\n{traceback.format_exc()}"
-    base_logger.error(error_msg)
+    logger.error(error_msg)
     sys.exit(1)
 
 def save_result(result: dict, logger):
@@ -100,6 +107,8 @@ def save_result(result: dict, logger):
 def fetch_products_task(product_service: ProductClient, logger):
     """获取商品列表任务"""
     try:
+        logger.warning(f"test warning")
+        logger.error(f"test error")
         current_time = datetime.now(pytz.timezone(settings.TIMEZONE)).strftime("%Y-%m-%d %H:%M:%S")
         message = f"[{SERVER_ENV}] 开始获取商品列表任务 at {current_time}"
         logger.info(message)
@@ -178,31 +187,10 @@ def fetch_products_task(product_service: ProductClient, logger):
         logger.error(error_msg)
 
 def main():
-    base_logger.info("Starting main function")
-    
-    # 使用supervisor配置的日志路径
-    log_file = '/var/log/supervisor/fetch_products_out.log'
-    
-    # 使用封装的logger
-    try:
-        logger = setup_logger(
-            name=f'fetch_products_{SERVER_ENV.lower()}',
-            log_file=log_file,
-            level=logging.INFO,
-            log_to_stderr=False
-        )
-        logger.propagate = False  # 防止日志传播到父logger
-        logger.info("Logger setup completed")
-    except Exception as e:
-        error_msg = f"设置日志失败: {str(e)}\n{traceback.format_exc()}"
-        base_logger.error(error_msg)
-        sys.exit(1)
-        
-    logger.info(f"Product fetch service started in {SERVER_ENV} environment")
+    logger.info("Starting main function")
     
     # 初始化商品服务
     product_service = ProductClient(logger=logger)
-    
     
     # 创建任务调度器
     try:
@@ -234,5 +222,5 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         error_msg = f"Main function failed: {str(e)}\n{traceback.format_exc()}"
-        base_logger.error(error_msg)
+        logger.error(error_msg)
         sys.exit(1) 
