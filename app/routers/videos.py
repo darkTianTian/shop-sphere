@@ -90,7 +90,7 @@ async def list_videos(request: Request, page: int = 1, current_user: dict = Depe
                 "page": page,
                 "total_pages": total_pages,
                 "has_prev": page>1,
-                "has_next": page<total_pages
+                "has_next": page<total_pages,
             }
         )
 
@@ -342,15 +342,23 @@ async def update_video_material_status(
         )
 
 @router.get("/published", response_class=HTMLResponse)
-async def list_published_videos(request: Request, page: int = 1, current_user: dict = Depends(require_admin())):
+async def list_published_videos(request: Request, page: int = 1, item_id: str | None = None, status: str | None = None, current_user: dict = Depends(require_admin())):
     """已发布视频列表页面"""
     page = max(page, 1)
     with Session(engine) as session:
-        total = session.exec(select(func.count(Video.id))).one()
-        total_pages = max(math.ceil(total/PAGE_SIZE), 1)
-        offset_val = (page - 1) * PAGE_SIZE
+        # 构建基础查询，可按商品ID筛选
+        base_query = select(Video)
+        if item_id:
+            base_query = base_query.where(Video.item_id == item_id)
+        if status in ["enabled", "disabled"]:
+            base_query = base_query.where(Video.is_enabled == (status == "enabled"))
+
+        # 计算分页
+        total = session.exec(select(func.count()).select_from(base_query.subquery())).one()
+        total_pages = max(math.ceil(total/PAGE_SIZE),1)
+        offset_val = (page-1)*PAGE_SIZE
         videos = session.exec(
-            select(Video).order_by(Video.create_at.desc()).offset(offset_val).limit(PAGE_SIZE)
+            base_query.order_by(Video.create_at.desc()).offset(offset_val).limit(PAGE_SIZE)
         ).all()
 
         # 取商品信息
@@ -379,6 +387,9 @@ async def list_published_videos(request: Request, page: int = 1, current_user: d
                 "total_pages": total_pages,
                 "has_prev": page > 1,
                 "has_next": page < total_pages,
+                "current_item_id": item_id or "",
+                "current_status": status or "",
+                "all_statuses": ["enabled", "disabled"],
             },
         )
 

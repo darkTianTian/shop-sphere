@@ -120,7 +120,7 @@ async def delete_product(product_id: int, current_user: dict = Depends(require_a
 async def list_products_api(current_user: dict = Depends(require_admin())):
     """返回商品列表的API"""
     with Session(engine) as session:
-        products = session.exec(select(Product).order_by(Product.item_create_time.desc())).all()
+        products = session.exec(select(Product).where(Product.status == ProductStatus.MANAGED).order_by(Product.item_create_time.desc())).all()
         return [{
             "item_id": p.item_id,
             "item_name": p.item_name,
