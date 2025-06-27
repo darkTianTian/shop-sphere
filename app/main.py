@@ -7,7 +7,7 @@ import os
 
 from app.routers import (
     health, auth, admin, products, articles, videos,
-    system_settings, publish_config
+    system_settings, publish_config, prompt_template
 )
 from app.settings import load_settings
 from app.middleware.admin_auth import AdminAuthMiddleware
@@ -61,6 +61,7 @@ app.include_router(articles.router)
 app.include_router(videos.router)
 app.include_router(system_settings.router)
 app.include_router(publish_config.router)
+app.include_router(prompt_template.router)
 
 
 @app.get("/")

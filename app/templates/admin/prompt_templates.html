@@ -1,0 +1,137 @@
+{% extends "admin/base.html" %}
+
+{% block title %}提示词模板配置 - ShopSphere{% endblock %}
+
+{% block content %}
+<div class="flex space-x-8">
+    <!-- 模板列表 -->
+    <div class="flex-1 min-w-0">
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+            <div class="px-4 py-5 sm:px-6 flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">提示词模板列表</h3>
+                    <p class="mt-1 text-sm text-gray-500">管理 AI 文章生成所用的提示词模板</p>
+                </div>
+                <button id="newTplBtn"
+                    class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                    新建模板
+                </button>
+            </div>
+            <div class="border-t border-gray-200 divide-y divide-gray-200">
+                {% for tpl in templates %}
+                <div class="px-4 py-4 flex items-center justify-between">
+                    <div>
+                        <p class="font-medium text-gray-900">{{ tpl.name }}</p>
+                        <p class="text-sm text-gray-500">类型: {{ tpl.prompt_type }} | 平台: {{ tpl.platform }}</p>
+                        <p class="text-sm text-gray-500 mt-1 truncate" title="{{ tpl.prompt_template }}">{{
+                            tpl.prompt_template }}</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <form method="post" action="/admin/prompt-templates/{{ tpl.id }}/toggle">
+                            <button
+                                class="px-3 py-1 rounded text-white text-sm {% if tpl.is_active %}bg-green-600{% else %}bg-gray-400{% endif %}"
+                                type="submit">
+                                {% if tpl.is_active %}停用{% else %}启用{% endif %}
+                            </button>
+                        </form>
+                        <!-- 编辑按钮：使用 JS 将数据填充到右侧表单 -->
+                        <button onclick="fillForm({{ tpl.id }})"
+                            class="px-3 py-1 rounded bg-blue-600 text-white text-sm">编辑</button>
+                        <form method="post" action="/admin/prompt-templates/{{ tpl.id }}"
+                            onsubmit="return confirm('确定删除该模板?')" data-method="delete">
+                            <button class="px-3 py-1 rounded bg-red-600 text-white text-sm" type="submit">删除</button>
+                        </form>
+                    </div>
+                </div>
+                {% else %}
+                <div class="px-4 py-4 text-center text-gray-500">暂无模板</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑/创建表单 -->
+    <div id="formContainer" class="w-96 hidden">
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg sticky top-4">
+            <div class="px-4 py-5 sm:px-6">
+                <h3 id="formTitle" class="text-lg leading-6 font-medium text-gray-900">新建模板</h3>
+            </div>
+            <div class="border-t border-gray-200 p-4">
+                <form id="tplForm" method="post" action="/admin/prompt-templates" class="space-y-4">
+                    <input type="hidden" name="template_id" id="template_id">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="name">名称</label>
+                        <input required type="text" id="name" name="name"
+                            class="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="prompt_type">类型</label>
+                        <select id="prompt_type" name="prompt_type"
+                            class="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary">
+                            {% for pt in prompt_types %}
+                            <option value="{{ pt }}">{{ pt }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="platform">平台</label>
+                        <input type="text" id="platform" name="platform" value="xhs"
+                            class="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="prompt_template">模板内容</label>
+                        <textarea required id="prompt_template" name="prompt_template" rows="8"
+                            class="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"></textarea>
+                    </div>
+                    <div class="flex items-center">
+                        <input id="is_active" name="is_active" type="checkbox"
+                            class="h-4 w-4 text-primary border-gray-300 rounded">
+                        <label for="is_active" class="ml-2 block text-sm text-gray-700">启用</label>
+                    </div>
+                    <div class="text-right">
+                        <button type="submit"
+                            class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const templatesData = {{ templates_json | tojson | safe }};
+
+    const formContainer = document.getElementById('formContainer');
+    const formTitle = document.getElementById('formTitle');
+
+    document.getElementById('newTplBtn').addEventListener('click', () => {
+        resetForm();
+        formContainer.classList.remove('hidden');
+    });
+
+    function resetForm() {
+        formTitle.textContent = '新建模板';
+        document.getElementById('template_id').value = '';
+        document.getElementById('name').value = '';
+        document.getElementById('prompt_type').selectedIndex = 0;
+        document.getElementById('prompt_template').value = '';
+        document.getElementById('platform').value = 'xhs';
+        document.getElementById('is_active').checked = false;
+    }
+
+    function fillForm(id) {
+        const tpl = templatesData.find(t => t.id === id);
+        if (!tpl) return;
+        formTitle.textContent = '编辑模板';
+        document.getElementById('template_id').value = tpl.id;
+        document.getElementById('name').value = tpl.name;
+        document.getElementById('prompt_type').value = tpl.prompt_type;
+        document.getElementById('prompt_template').value = tpl.prompt_template;
+        document.getElementById('platform').value = tpl.platform;
+        document.getElementById('is_active').checked = tpl.is_active;
+        formContainer.classList.remove('hidden');
+    }
+</script>
+{% endblock %}

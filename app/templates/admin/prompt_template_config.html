@@ -1,0 +1,91 @@
+{% extends "admin/base.html" %}
+
+{% block title %}提示词模板配置 - ShopSphere{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow overflow-hidden sm:rounded-lg max-w-3xl mx-auto">
+    <div class="px-4 py-5 sm:px-6">
+        <h3 class="text-lg leading-6 font-medium text-gray-900">提示词模板配置</h3>
+        <p class="mt-1 text-sm text-gray-500">配置系统生成商品文章时使用的提示词模板</p>
+    </div>
+    <div class="border-t border-gray-200">
+        <form method="post" class="divide-y divide-gray-200" action="/admin/prompt-template">
+            <div class="px-4 py-5 sm:p-6 space-y-6">
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700">模板名称</label>
+                    <input type="text" name="name" id="name" value="{{ tpl.name }}"
+                        class="mt-1 block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:bg-white focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm placeholder-gray-400"
+                        placeholder="输入模板名称" required>
+                </div>
+
+                <div>
+                    <label for="prompt_template" class="block text-sm font-medium text-gray-700">模板内容</label>
+                    <textarea id="prompt_template" name="prompt_template" rows="14" required
+                        class="mt-1 block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md shadow-sm font-mono text-sm leading-relaxed focus:bg-white focus:ring-2 focus:ring-primary focus:border-primary resize-y min-h-[260px] placeholder-gray-400"
+                        placeholder="在此输入提示词模板，支持占位符，如 $item_name, $description">{{ tpl.prompt_template }}</textarea>
+                    <p class="text-sm text-gray-500 mt-1">可以使用 $item_name, $description 等占位符</p>
+                </div>
+
+                <div class="flex items-center">
+                    <input id="is_active" name="is_active" type="checkbox" {% if tpl.is_active %}checked{% endif %}
+                        class="h-4 w-4 text-primary border-gray-300 rounded">
+                    <label for="is_active" class="ml-2 block text-sm text-gray-700">启用</label>
+                </div>
+
+                <!-- 隐藏字段保留类型/平台 -->
+                <input type="hidden" name="template_id" value="{{ tpl.id }}">
+                <input type="hidden" name="prompt_type" value="{{ tpl.prompt_type.value }}">
+                <input type="hidden" name="platform" value="{{ tpl.platform }}">
+            </div>
+            <div class="px-4 py-3 bg-gray-50 text-right sm:px-6">
+                <button type="submit"
+                    class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                    保存配置
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Toast 通知 -->
+<div id="notification"
+    class="fixed top-4 right-4 px-4 py-2 bg-green-500 text-white rounded shadow-lg transition-opacity duration-500 opacity-0">
+</div>
+
+<script>
+    function showNotification(message) {
+        const notification = document.getElementById('notification');
+        if (!notification) return;
+        notification.textContent = message;
+        notification.style.opacity = '1';
+        setTimeout(() => {
+            notification.style.opacity = '0';
+        }, 2000);
+    }
+
+    // 拦截表单提交，使用 fetch 发送并显示提示
+    document.querySelector('form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'Accept': 'application/json'
+            }
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showNotification('配置已保存');
+                } else {
+                    showNotification('保存失败');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showNotification('保存失败');
+            });
+    });
+</script>
+{% endblock %}

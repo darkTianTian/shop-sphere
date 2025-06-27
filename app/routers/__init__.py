@@ -10,6 +10,7 @@ from .articles import router as articles_router
 from .videos import router as videos_router
 from .system_settings import router as system_settings_router
 from .publish_config import router as publish_config_router
+from .prompt_template import router as prompt_template_router
 
 # Export all routers
 __all__ = [
@@ -21,4 +22,5 @@ __all__ = [
     "videos_router",
     "system_settings_router",
     "publish_config_router",
+    "prompt_template_router",
 ]
