@@ -100,17 +100,16 @@ class PublishConfig(BaseModel, table=True):
         for i in range(article_count):
             minutes_to_add = round(i * interval_minutes)
             total_minutes = start_total_minutes + minutes_to_add
-            
-            # 处理超过24小时的情况
-            if total_minutes >= 24 * 60:
-                total_minutes -= 24 * 60
-                # 如果跨天，使用下一天的日期
-                today = today + timedelta(days=1)
-                
-            hour = total_minutes // 60
-            minute = total_minutes % 60
-            current_time = datetime.combine(today, time(hour=hour, minute=minute))
-            publish_times.append(current_time)
+
+            # 计算跨越的天数
+            days_offset = total_minutes // (24 * 60)
+            minutes_in_day = total_minutes % (24 * 60)
+
+            current_date = today + timedelta(days=days_offset)
+
+            hour = minutes_in_day // 60
+            minute = minutes_in_day % 60
+            publish_times.append(datetime.combine(current_date, time(hour=hour, minute=minute)))
         
         return publish_times
 
