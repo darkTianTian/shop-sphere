@@ -12,6 +12,7 @@ import os
 from app.auth.decorators import require_admin
 from app.internal.db import engine
 from app.models.product import Product, ProductArticle, ArticleStatus, ProductStatus
+from app.models.video import Video
 from app.routers.admin import templates as shared_templates
 from app.services.xiaohongshu.product_client import ProductClient
 from app.scripts.fetch_products import fetch_products_task
@@ -85,6 +86,17 @@ async def list_products(
             .where(Product.status == ProductStatus.MANAGED)
         ).one()
         
+        # 计算可用视频数量（is_enabled=True）按 item_id
+        item_ids = [p.item_id for p in products if p.item_id]
+        video_counts = {}
+        if item_ids:
+            cnt_rows = session.exec(
+                select(Video.item_id, func.count())
+                .where(Video.item_id.in_(item_ids), Video.is_enabled == True)
+                .group_by(Video.item_id)
+            ).all()
+            video_counts = {row[0]: row[1] for row in cnt_rows}
+        
         return templates.TemplateResponse(
             "admin/products.html",
             {
@@ -92,6 +104,7 @@ async def list_products(
                 "user": current_user,
                 "products": products,
                 "managed_count": managed_count,
+                "video_counts": video_counts,
                 "total_count": total,
                 "page": page,
                 "total_pages": total_pages,

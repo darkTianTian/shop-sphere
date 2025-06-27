@@ -98,6 +98,10 @@
                                             </th>
                                             <th scope="col"
                                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                可用视频
+                                            </th>
+                                            <th scope="col"
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                 状态
                                                 <div class="inline-block relative group">
                                                     <svg class="h-4 w-4 text-gray-400 inline-block ml-1 cursor-help"
@@ -186,6 +190,8 @@
                             </div>
                             {% endif %}
                             </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{
+                                video_counts.get(product.item_id, 0) }}</td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <select onchange="updateStatus('{{ product.id }}', this.value)" class="block w-full pl-3 pr-10 py-2 text-sm font-medium rounded-md border-2 transition-colors
                                     {% if product.status == 'managed' %}
