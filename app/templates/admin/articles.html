@@ -537,7 +537,7 @@
         const player = document.getElementById('player');
 
         // 获取签名URL
-        fetch(`/admin/videos/${videoId}/play`)
+        fetch(`/admin/videos/published/${videoId}/play`)
             .then(response => response.json())
             .then(data => {
                 if (data.url) {
