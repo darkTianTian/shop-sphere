@@ -39,7 +39,7 @@ async_engine = create_async_engine(
 @asynccontextmanager
 async def get_async_session():
     """获取异步数据库会话"""
-    async with AsyncSession(async_engine) as session:
+    async with AsyncSession(async_engine, expire_on_commit=False) as session:
         try:
             yield session
             await session.commit()

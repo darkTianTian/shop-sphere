@@ -47,7 +47,6 @@ async def list_articles(request: Request, page: int = 1, current_user: dict = De
                 .join(Video, ArticleVideoMapping.video_id == Video.id, isouter=True)
                 .where(
                     ArticleVideoMapping.article_id.in_(article_ids),
-                    ArticleVideoMapping.status == "published"
                 )
             ).all()
             

@@ -6,6 +6,7 @@ AI 服务模块
 import os
 import json
 import logging
+import asyncio
 from openai import OpenAI, AsyncOpenAI
 from typing import Optional, Dict, Any
 from datetime import datetime, time
@@ -335,39 +336,59 @@ class DeepSeekAIService:
         Returns:
             生成的文章内容
         """
-        try:
-            # 构建提示词
-            prompt = self._build_article_prompt(product_data)
-            if not prompt:
-                self.logger.error("无法构建提示词")
-                return None
-            
-            # 选择最优模型
-            model_name = self.model_strategy.get_optimal_model()
-            model_config = self.model_strategy.get_model_info(model_name)
-            
-            # 获取北京时间用于日志
-            beijing_tz = pytz.timezone('Asia/Shanghai')
-            beijing_time = datetime.now(beijing_tz).strftime('%H:%M:%S')
-            
-            self.logger.info(f"调用 DeepSeek API - 模型: {model_name} ({model_config['description']}) - 北京时间: {beijing_time}")
-            
-            # 使用异步客户端调用API
-            response = await self.client.chat.completions.create(
-                model=model_name,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=model_config["max_tokens"],
-                temperature=model_config["temperature"],
-                response_format={"type": "json_object"},
-                stream=False
-            )
-            
-            self.logger.info(f"API 调用成功 - 模型: {model_name}, response: {response}")
-            
-            # 解析响应
-            article_content = self._parse_ai_response(response.choices[0].message.content)
-            return article_content
-            
-        except Exception as e:
-            self.logger.error(f"调用 DeepSeek AI API 失败: {str(e)}")
-            return None 
+        max_attempts = 3
+        backoff_base = 2  # 指数退避基数
+
+        for attempt in range(1, max_attempts + 1):
+            try:
+                # 构建提示词
+                prompt = self._build_article_prompt(product_data)
+                if not prompt:
+                    self.logger.error("无法构建提示词")
+                    return None
+
+                # 选择最优模型
+                model_name = self.model_strategy.get_optimal_model()
+                model_config = self.model_strategy.get_model_info(model_name)
+
+                # 获取北京时间用于日志
+                beijing_tz = pytz.timezone('Asia/Shanghai')
+                beijing_time = datetime.now(beijing_tz).strftime('%H:%M:%S')
+
+                self.logger.info(
+                    f"[尝试 {attempt}/{max_attempts}] 调用 DeepSeek API - 模型: {model_name} ({model_config['description']}) - 北京时间: {beijing_time}"
+                )
+
+                # 使用异步客户端调用API
+                response = await self.client.chat.completions.create(
+                    model=model_name,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=model_config["max_tokens"],
+                    temperature=model_config["temperature"],
+                    response_format={"type": "json_object"},
+                    stream=False
+                )
+
+                self.logger.info(f"API 调用成功 (attempt {attempt} - 模型: {model_name}, response: {response}")
+
+                # 解析响应
+                article_content = self._parse_ai_response(response.choices[0].message.content)
+
+                if article_content:
+                    return article_content
+
+                # 解析失败或返回 None
+                self.logger.warning(f"DeepSeek API 返回无法解析或为空 (attempt {attempt})")
+
+            except Exception as e:
+                self.logger.error(f"DeepSeek API 调用异常 (attempt {attempt}): {str(e)}")
+
+            # 如果未成功且还有重试次数，等待后重试
+            if attempt < max_attempts:
+                backoff = backoff_base ** (attempt - 1)
+                self.logger.info(f"{backoff}s 后重试 DeepSeek API (attempt {attempt + 1})")
+                await asyncio.sleep(backoff)
+
+        # 所有尝试失败
+        self.logger.error("DeepSeek API 三次尝试均失败，返回 None")
+        return None 

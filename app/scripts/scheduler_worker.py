@@ -35,7 +35,7 @@ class SchedulerWorker:
     def __init__(self, timezone: str = 'Asia/Shanghai'):
         self.timezone = timezone
         self.scheduler = AsyncIOScheduler(timezone=timezone)
-        self.generator = ProductArticleGenerator(logger=logger)
+        self.generator = ProductArticleGenerator(logger=logger, max_concurrent=5)
         
     async def check_and_run_task(self):
         """检查配置并执行任务"""
@@ -72,9 +72,11 @@ class SchedulerWorker:
             # 添加每分钟执行的任务
             self.scheduler.add_job(
                 self.check_and_run_task,
-                CronTrigger(minute='*'),  # 每分钟执行一次
+                CronTrigger(minute='*/3'),  # 每分钟执行一次
                 id='generate_articles',
-                replace_existing=True
+                replace_existing=True,
+                max_instances=1,  # 最多允许1个实例运行
+                coalesce=True     # 如果错过执行时间，合并执行
             )
             
             # 启动调度器

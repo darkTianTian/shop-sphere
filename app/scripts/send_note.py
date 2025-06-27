@@ -95,13 +95,18 @@ def process_pending_articles():
                         # 更新视频发布次数
                         video.publish_cnt += 1
                         
-                        # 创建文章和视频的关联记录
-                        mapping = ArticleVideoMapping(
+                        # 查询文章和视频关联是否存在
+                        mapping = session.exec(select(ArticleVideoMapping).where(ArticleVideoMapping.article_id == article.id, ArticleVideoMapping.video_id == video.id)).first()
+                        if not mapping:
+                            mapping = ArticleVideoMapping(
                             article_id=article.id,
                             video_id=video.id,
                             status="published",
                             publish_time=current_time
                         )
+                        else:
+                            mapping.status = "published"
+                            mapping.publish_time = current_time
                         
                         # 保存所有更改
                         session.add(video)

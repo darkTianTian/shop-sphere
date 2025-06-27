@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import collections
 from itertools import cycle
 import os
 import sys
@@ -17,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sqlmodel import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.internal.db import get_async_session
-from app.models.product import Product, ProductArticle, ArticleStatus, ProductStatus
+from app.models.product import ArticleVideoMapping, Product, ProductArticle, ArticleStatus, ProductStatus
 from app.services.ai_service import DeepSeekAIService
 from app.utils.logger import setup_logger
 from app.utils.scheduler import TaskScheduler
@@ -42,7 +43,7 @@ class ProductArticleGenerator:
         self.max_concurrent = max_concurrent
         self.semaphore: asyncio.Semaphore | None = None
     
-    async def get_products_needing_articles(self, session) -> Tuple[List[Product], int]:
+    async def get_products_needing_articles(self, session) -> Tuple[List[Product], int, dict]:
         """
         获取需要生成文章的商品列表
         且没有 DRAFT/PENDING_REVIEW/PENDING_PUBLISH 状态的文章
@@ -57,17 +58,19 @@ class ProductArticleGenerator:
             # 过滤出需要生成文章的商品
             products_needing_articles = []
             existing_count = 0
+            product_videos = {}
             
             for product in products:
-                # 查询商品是否存在待发布视频
-                pending_videos_query = select(func.count(Video.id)).where(
+                # 查询商品的所有的待发布视频id
+                pending_videos_query = select(Video.id).where(
                     Video.item_id == product.item_id,
                     Video.is_enabled == True
                 )
-                has_video = (await session.execute(pending_videos_query)).scalar_one() > 0
-                if not has_video:
+                pending_videos = (await session.execute(pending_videos_query)).scalars().all()
+                if not pending_videos:
                     self.logger.info(f"商品 {product.item_id} 没有待发布视频，跳过文章生成")
                     continue
+                product_videos[product.item_id] = pending_videos
 
                 # 检查是否已有指定状态的文章
                 existing_articles_query = select(func.count(ProductArticle.id)).where(
@@ -79,11 +82,11 @@ class ProductArticleGenerator:
                 products_needing_articles.append(product)
                 
             self.logger.info(f"找到 {len(products)} 个符合条件的商品，其中 {len(products_needing_articles)} 个需要生成文章")
-            return products_needing_articles, existing_count
+            return products_needing_articles, existing_count, product_videos
                 
         except Exception as e:
             self.logger.error(f"查询需要生成文章的商品失败: {str(e)}")
-            return [], 0
+            return [], 0, {}
     
     async def generate_article_with_ai(self, product_data: dict) -> Optional[dict]:
         """
@@ -120,7 +123,6 @@ class ProductArticleGenerator:
                     "tags": ai_result.get("tags", "商品推荐,优质好物"),
                     "author_name": model_name_used
                 }
-                
                 self.logger.info(f"商品 {product_data['item_id']} 文章生成成功")
                 return article_content
             else:
@@ -131,11 +133,12 @@ class ProductArticleGenerator:
             self.logger.error(f"为商品 {product_data['item_id']} 生成文章失败: {str(e)}")
             return None
     
-    async def save_article_to_database(self, product_data: dict, article_content: dict) -> bool:
+    async def save_article_to_database(self, session, product_data: dict, article_content: dict) -> bool:
         """
         将生成的文章保存到数据库（异步版本）
         
         Args:
+            session: 数据库会话
             product_data: 商品数据字典
             article_content: 文章内容字典
             
@@ -143,36 +146,46 @@ class ProductArticleGenerator:
             是否保存成功
         """
         try:
-            async with get_async_session() as session:
-                article = ProductArticle(
-                    item_id=product_data["item_id"],
-                    sku_id=product_data["first_sku_id"],
-                    title=article_content["title"],
-                    content=article_content["content"],
-                    tag_ids="",  # 保留原字段，暂时为空
-                    tags=article_content.get("tags", ""),  # 使用新的tags字段存储AI生成的标签
-                    owner_id="system",  # 系统生成
-                    author_name=article_content.get("author_name", "AI助手"),
-                    status=ArticleStatus.PENDING_PUBLISH,  # 设置为草稿状态
-                    pre_publish_time=article_content.get("pre_publish_time", 0)
-                )
-                
+            article = ProductArticle(
+                item_id=product_data["item_id"],
+                sku_id=product_data["first_sku_id"],
+                title=article_content["title"],
+                content=article_content["content"],
+                tag_ids="",  # 保留原字段，暂时为空
+                tags=article_content.get("tags", ""),  # 使用新的tags字段存储AI生成的标签
+                owner_id="system",  # 系统生成
+                author_name=article_content.get("author_name", "AI助手"),
+                status=ArticleStatus.PENDING_PUBLISH,  # 设置为草稿状态
+                pre_publish_time=article_content.get("pre_publish_time", 0)
+            )
+            
+            # 使用事务确保原子性
+            async with session.begin():
+                # 先保存文章
                 session.add(article)
-                await session.commit()
-                await session.refresh(article)
-                
-                self.logger.info(f"文章已保存到数据库，ID: {article.id}, 商品: {product_data['item_id']}")
-                return True
-                
+                await session.flush()  # 刷新以获取 article.id
+                article_id = article.id  # 提前缓存主键，避免提交后过期触发 IO
+                # 创建文章-视频关联记录
+                article_video_mapping = ArticleVideoMapping(
+                    article_id=article_id,
+                    video_id=product_data["video_id"],
+                    status="pending_publish"
+                )
+                session.add(article_video_mapping)
+            
+            self.logger.info(f"文章已保存到数据库，ID: {article_id}, 商品: {product_data['item_id']}")
+            return True
+            
         except Exception as e:
             self.logger.error(f"保存文章到数据库失败: {str(e)}")
             return False
     
-    async def process_single_product(self, product_data: dict, publish_time: datetime) -> bool:
+    async def process_single_product(self, session, product_data: dict, publish_time: datetime) -> bool:
         """
         处理单个商品，生成并保存文章（异步版本）
         
         Args:
+            session: 数据库会话
             product_data: 商品数据字典
             publish_time: 预计发布时间
             
@@ -184,7 +197,7 @@ class ProductArticleGenerator:
             
             # 这里对publish_time进行一个随机偏移，偏移范围为+-120s
             p_time = publish_time + timedelta(seconds=random.randint(-120, 120))
-            self.logger.info(f"商品 {product_data['item_id']} 标准发布时间: {publish_time}, 实际发布时间: {p_time}")
+            self.logger.info(f"商品 {product_data['item_id']} 标准发布时间: {publish_time}, 实际发布时间: {p_time}, 视频id: {product_data['video_id']}")
             
             # 生成文章内容
             article_content = await self.generate_article_with_ai(product_data)
@@ -196,13 +209,60 @@ class ProductArticleGenerator:
             article_content["pre_publish_time"] = int(p_time.timestamp() * 1000)  # 转换为毫秒时间戳
             
             # 保存到数据库
-            if await self.save_article_to_database(product_data, article_content):
+            if await self.save_article_to_database(session, product_data, article_content):
                 self.generated_count += 1
                 return True
             else:
                 self.error_count += 1
                 return False
                 
+        except Exception as e:
+            self.logger.error(f"处理商品 {product_data['item_id']} 失败: {str(e)}")
+            self.error_count += 1
+            return False
+    
+    async def process_single_product_with_session(self, product_data: dict, publish_time: datetime) -> bool:
+        """
+        处理单个商品，生成并保存文章（异步版本，使用独立会话）
+        
+        Args:
+            product_data: 商品数据字典
+            publish_time: 预计发布时间
+            
+        Returns:
+            是否处理成功
+        """
+        try:
+            # 使用超时保护，防止任务卡死
+            async with asyncio.timeout(300):  # 5分钟超时
+                async with get_async_session() as session:
+                    self.processed_count += 1
+                    
+                    # 这里对publish_time进行一个随机偏移，偏移范围为+-120s
+                    p_time = publish_time + timedelta(seconds=random.randint(-120, 120))
+                    self.logger.info(f"商品 {product_data['item_id']} 标准发布时间: {publish_time}, 实际发布时间: {p_time}, 视频id: {product_data['video_id']}")
+                    
+                    # 生成文章内容
+                    article_content = await self.generate_article_with_ai(product_data)
+                    if not article_content:
+                        self.error_count += 1
+                        return False
+                        
+                    # 设置预发布时间
+                    article_content["pre_publish_time"] = int(p_time.timestamp() * 1000)  # 转换为毫秒时间戳
+                    
+                    # 保存到数据库
+                    if await self.save_article_to_database(session, product_data, article_content):
+                        self.generated_count += 1
+                        return True
+                    else:
+                        self.error_count += 1
+                        return False
+                        
+        except asyncio.TimeoutError:
+            self.logger.error(f"处理商品 {product_data['item_id']} 超时")
+            self.error_count += 1
+            return False
         except Exception as e:
             self.logger.error(f"处理商品 {product_data['item_id']} 失败: {str(e)}")
             self.error_count += 1
@@ -230,7 +290,7 @@ class ProductArticleGenerator:
                 self.error_count = 0
                 
                 # 获取需要生成文章的商品
-                products, existing_count = await self.get_products_needing_articles(session)
+                products, existing_count, product_videos = await self.get_products_needing_articles(session)
                 need_generate_count = config.daily_publish_limit - existing_count
                 self.logger.info(f"每日上限: {config.daily_publish_limit}, 已存在文章的商品数量: {existing_count}, 需要生成文章的商品数量: {need_generate_count}")
                 if need_generate_count <= 0:
@@ -239,6 +299,13 @@ class ProductArticleGenerator:
                 
                 # 计算发布时间点
                 publish_times = config.calculate_publish_times(need_generate_count)
+
+                self.logger.info(f"商品视频: {product_videos}")
+                # 随机打乱视频顺序
+                product_videos_shuffled = {}
+                for p, v in product_videos.items():
+                    random.shuffle(v)
+                    product_videos_shuffled[p] = cycle(v)
                 
                 # 创建任务列表
                 tasks = []
@@ -255,11 +322,14 @@ class ProductArticleGenerator:
                         "seller_id": product.seller_id,
                         "platform": product.platform
                     }
-                    task = asyncio.create_task(self.process_single_product(product_data, publish_time))
+                    product_data["video_id"] = next(product_videos_shuffled[product.item_id])
+                    task = asyncio.create_task(self.process_single_product_with_session(product_data, publish_time))
                     tasks.append(task)
                 
+                self.logger.info(f"创建了 {len(tasks)} 个任务，开始并发执行")
                 # 等待所有任务完成
                 await asyncio.gather(*tasks)
+                self.logger.info("所有任务执行完成")
                 
                 # 统计结果
                 elapsed_time = time.time() - start_time

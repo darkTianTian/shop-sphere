@@ -323,16 +323,27 @@ class NoteService:
             description += f"#{tag}[话题]# "
         builder.set_description(description)
         
-         # 获取视频信息
+        # 查询是否有待发布视频
+        video = None
         with Session(engine) as session:
-            video = session.exec(
-                select(Video).where(Video.sku_id == goods_id, Video.is_enabled == True)
+            article_video_mapping = session.exec(
+                select(ArticleVideoMapping).where(ArticleVideoMapping.article_id == article_data.id, ArticleVideoMapping.status == "pending_publish")
             ).first()
-            self.logger.info(f"视频信息: {video}")    
+            if article_video_mapping:
+                video = session.exec(select(Video).where(Video.id == article_video_mapping.video_id, Video.is_enabled == True)).first()
+            else:
+                self.logger.info(f"没有找到待发布视频: {article_data.id}")
             if not video:
-                self.logger.info(f"没有找到可用视频: {goods_id}")
-                return {"success": False, "message": "没有找到可用视频"}, None
-            
+                self.logger.warning(f"没有找到待发布视频: {article_video_mapping.video_id}")
+                video = session.exec(
+                    select(Video).where(Video.sku_id == goods_id, Video.is_enabled == True)
+                ).first()
+                if not video:
+                    self.logger.info(f"没有找到可用视频: {goods_id}")
+                    return {"success": False, "message": "没有找到可用视频"}, None
+        
+        self.logger.info(f"匹配视频信息: {video}")    
+        
         # 设置文章的话题标签
         self.set_topic_tags(article_data, builder)
 
@@ -351,8 +362,6 @@ class NoteService:
             biz_id=goods_id,
             extra_info=json.dumps(extra_info)
         )
-        
-       
         
             # 上传视频到小红书
         oss_service = OSSService(logger=self.logger)

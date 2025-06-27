@@ -107,8 +107,6 @@ def save_result(result: dict, logger):
 def fetch_products_task(product_service: ProductClient, logger):
     """获取商品列表任务"""
     try:
-        logger.warning(f"test warning")
-        logger.error(f"test error")
         current_time = datetime.now(pytz.timezone(settings.TIMEZONE)).strftime("%Y-%m-%d %H:%M:%S")
         message = f"[{SERVER_ENV}] 开始获取商品列表任务 at {current_time}"
         logger.info(message)
