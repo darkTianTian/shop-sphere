@@ -17,16 +17,20 @@ router = APIRouter(prefix="/admin", tags=["articles"])
 templates: Jinja2Templates = shared_templates
 
 @router.get("/articles", response_class=HTMLResponse)
-async def list_articles(request: Request, page: int = 1, current_user: dict = Depends(require_admin())):
+async def list_articles(request: Request, page: int = 1, status: str | None = None, current_user: dict = Depends(require_admin())):
     PAGE_SIZE = 20
     page = max(page, 1)
     with Session(engine) as session:
-        total = session.exec(select(func.count(ProductArticle.id))).one()
+        base_query = select(ProductArticle)
+        if status and status in [s.value for s in ArticleStatus]:
+            base_query = base_query.where(ProductArticle.status == ArticleStatus(status))
+
+        total = session.exec(select(func.count()).select_from(base_query.subquery())).one()
         total_pages = max(math.ceil(total / PAGE_SIZE), 1)
         offset_val = (page - 1) * PAGE_SIZE
         articles = (
             session.exec(
-                select(ProductArticle).order_by(ProductArticle.create_at.desc()).offset(offset_val).limit(PAGE_SIZE)
+                base_query.order_by(ProductArticle.create_at.desc()).offset(offset_val).limit(PAGE_SIZE)
             ).all()
         )
         
@@ -79,6 +83,8 @@ async def list_articles(request: Request, page: int = 1, current_user: dict = De
                 "total_pages": total_pages,
                 "has_prev": page > 1,
                 "has_next": page < total_pages,
+                "current_status": status or "",
+                "all_statuses": [s.value for s in ArticleStatus],
             },
         )
 

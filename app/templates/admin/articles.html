@@ -6,6 +6,16 @@
 <div class="bg-white shadow overflow-hidden sm:rounded-lg">
     <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
         <h3 class="text-lg leading-6 font-medium text-gray-900">文章管理</h3>
+        <form method="get" action="/admin/articles" class="flex items-center space-x-2">
+            <label for="status" class="text-sm text-gray-600">状态</label>
+            <select id="status" name="status" onchange="this.form.submit()"
+                class="block w-40 pl-3 pr-10 py-2 text-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary rounded-md shadow-sm">
+                <option value="" {% if not current_status %}selected{% endif %}>全部</option>
+                {% for s in all_statuses %}
+                <option value="{{ s }}" {% if current_status==s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </form>
     </div>
     <div class="border-t border-gray-200">
         <div class="bg-white">
