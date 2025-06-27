@@ -72,7 +72,7 @@ class SchedulerWorker:
             # 添加每分钟执行的任务
             self.scheduler.add_job(
                 self.check_and_run_task,
-                CronTrigger(minute='*/3'),  # 每分钟执行一次
+                CronTrigger(minute='*/5'),  # 每5分钟执行一次
                 id='generate_articles',
                 replace_existing=True,
                 max_instances=1,  # 最多允许1个实例运行
