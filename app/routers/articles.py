@@ -17,7 +17,14 @@ router = APIRouter(prefix="/admin", tags=["articles"])
 templates: Jinja2Templates = shared_templates
 
 @router.get("/articles", response_class=HTMLResponse)
-async def list_articles(request: Request, page: int = 1, status: str | None = None, current_user: dict = Depends(require_admin())):
+async def list_articles(
+    request: Request,
+    page: int = 1,
+    status: str | None = None,
+    sort: str | None = None,
+    dir: str = "desc",
+    current_user: dict = Depends(require_admin()),
+):
     PAGE_SIZE = 20
     page = max(page, 1)
     with Session(engine) as session:
@@ -28,11 +35,18 @@ async def list_articles(request: Request, page: int = 1, status: str | None = No
         total = session.exec(select(func.count()).select_from(base_query.subquery())).one()
         total_pages = max(math.ceil(total / PAGE_SIZE), 1)
         offset_val = (page - 1) * PAGE_SIZE
-        articles = (
-            session.exec(
-                base_query.order_by(ProductArticle.create_at.desc()).offset(offset_val).limit(PAGE_SIZE)
-            ).all()
-        )
+
+        # 排序字段映射
+        sort_map = {
+            "id": ProductArticle.id,
+            "pre_publish_time": ProductArticle.pre_publish_time,
+            "publish_time": ProductArticle.publish_time,
+            "create_at": ProductArticle.create_at,
+        }
+        order_col = sort_map.get(sort, ProductArticle.create_at)
+        order_exp = order_col.asc() if dir == "asc" else order_col.desc()
+
+        articles = session.exec(base_query.order_by(order_exp).offset(offset_val).limit(PAGE_SIZE)).all()
         
         # 获取商品信息
         item_ids = [a.item_id for a in articles if a.item_id]
@@ -85,6 +99,8 @@ async def list_articles(request: Request, page: int = 1, status: str | None = No
                 "has_next": page < total_pages,
                 "current_status": status or "",
                 "all_statuses": [s.value for s in ArticleStatus],
+                "sort": sort or "",
+                "dir": dir,
             },
         )
 
