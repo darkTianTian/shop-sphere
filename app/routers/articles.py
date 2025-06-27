@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select, func
 import math
 from datetime import datetime
+import sqlalchemy as sa
 
 from app.auth.decorators import require_admin
 from app.internal.db import engine
@@ -105,17 +106,6 @@ async def list_articles(
         )
 
 
-@router.delete("/articles/{article_id}")
-async def delete_article(article_id: int, current_user: dict = Depends(require_admin())):
-    with Session(engine) as session:
-        article = session.get(ProductArticle, article_id)
-        if not article:
-            raise HTTPException(status_code=404, detail="文章不存在")
-        session.delete(article)
-        session.commit()
-        return {"ok": True}
-
-
 @router.get("/articles/{article_id}/edit", response_class=HTMLResponse)
 async def edit_article_form(article_id: int, request: Request, current_user: dict = Depends(require_admin())):
     with Session(engine) as session:
@@ -177,4 +167,21 @@ async def edit_article(article_id: int, request: Request, current_user: dict = D
         article.update_at = int(datetime.utcnow().timestamp() * 1000)
         session.commit()
         
-    return RedirectResponse(url="/admin/articles", status_code=302) 
+    return RedirectResponse(url="/admin/articles", status_code=302)
+
+
+# 批量删除文章
+@router.post("/articles/batch-delete")
+async def batch_delete_articles(ids: list[int], current_user: dict = Depends(require_admin())):
+    if not ids:
+        raise HTTPException(status_code=400, detail="ids 不能为空")
+    with Session(engine) as session:
+        # 先删除关联映射
+        session.exec(sa.delete(ArticleVideoMapping).where(ArticleVideoMapping.article_id.in_(ids)))
+
+        # 再删除文章
+        articles = session.exec(select(ProductArticle).where(ProductArticle.id.in_(ids))).all()
+        for art in articles:
+            session.delete(art)
+        session.commit()
+    return {"status": "success", "count": len(articles)} 
