@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlmodel import Session, select, func
+import asyncio
 
 from app.services.video_service import VideoService
 from app.services.oss_service import OSSService
@@ -395,32 +396,36 @@ async def list_published_videos(request: Request, page: int = 1, item_id: str | 
 
 @router.post("/publish/upload", response_model=dict)
 async def upload_published_video(
-    video_file: UploadFile = File(..., description="视频文件"),
+    video_files: list[UploadFile] = File(..., description="视频文件列表，字段名同为 video_files"),
     item_id: str = Form(..., description="商品ID"),
     sku_id: str = Form(None, description="SKU ID"),
     platform: str = Form("xiaohongshu", description="平台"),
     current_user: dict = Depends(require_admin())
 ):
-    """上传视频并存到 Video 表（待发布）"""
-    try:
-        # 使用通用上传服务处理视频上传
-        video_info, _, _, _ = await upload_service.process_video_upload(
-            video_file=video_file,
-            item_id=item_id,
-            sku_id=sku_id,
-            platform=platform,
-            prefix="video/publish/",
-            process_func="process_video_file"
-        )
-        
-        return {"success": True, "message": "视频上传成功", "video_id": video_info['id']}
-        
-    except Exception as e:
-        logger.error(f"视频上传失败: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"视频上传失败: {str(e)}"
-        )
+    """批量上传视频并存到 Video 表（待发布）。单次请求支持多个文件，协程并发处理。返回成功与失败列表"""
+
+    if not video_files:
+        raise HTTPException(status_code=400, detail="未选择文件")
+
+    async def handle_file(vf: UploadFile):
+        try:
+            video_info, _, _, _ = await upload_service.process_video_upload(
+                video_file=vf,
+                item_id=item_id,
+                sku_id=sku_id,
+                platform=platform,
+                prefix="video/publish/",
+                process_func="process_video_file"
+            )
+            return {"filename": vf.filename, "success": True, "video_id": video_info["id"]}
+        except Exception as e:
+            logger.error(f"视频上传失败 {vf.filename}: {str(e)}")
+            return {"filename": vf.filename, "success": False, "error": str(e)}
+
+    results = await asyncio.gather(*(handle_file(f) for f in video_files))
+
+    success_cnt = sum(1 for r in results if r["success"])
+    return {"success": True, "uploaded": success_cnt, "results": results}
 
 @router.put("/published/{video_id}/status", response_model=dict)
 async def update_published_video_status(

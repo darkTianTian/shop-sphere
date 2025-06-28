@@ -287,7 +287,9 @@
                         <form id="uploadForm" class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">选择视频文件</label>
-                                <input type="file" id="videoFile" accept="video/*" class="mt-1 block w-full" required>
+                                <input type="file" id="videoFiles" accept="video/*" multiple class="mt-1 block w-full"
+                                    required>
+                                <p class="mt-1 text-xs text-gray-500">按住 Ctrl/⌘ 或 Shift 可一次选择多个视频文件</p>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">关联商品</label>
@@ -368,11 +370,6 @@
                                     </div>
                                 </div>
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">描述</label>
-                                <textarea id="description" rows="3"
-                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 resize-none ring-1 ring-gray-300"></textarea>
-                            </div>
                             <div class="mt-6 flex justify-end space-x-3">
                                 <button type="button" onclick="closeUploadModal()"
                                     class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">取消</button>
@@ -404,6 +401,12 @@
                                     <p>时长：<span id="duration">-</span></p>
                                     <p>分辨率：<span id="resolution">-</span></p>
                                 </div>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-medium text-gray-900 mb-2">待上传文件</h4>
+                                <ul id="fileList"
+                                    class="text-sm text-gray-700 space-y-1 max-h-40 overflow-y-auto border rounded p-2 bg-gray-50">
+                                </ul>
                             </div>
                         </div>
                     </div>
@@ -512,86 +515,104 @@
     document.getElementById('uploadForm').addEventListener('submit', async function (e) {
         e.preventDefault();
 
-        const videoFile = document.getElementById('videoFile').files[0];
+        const fileInput = document.getElementById('videoFiles');
+        const files = Array.from(fileInput.files);
         const itemId = document.getElementById('itemId').value;
         const skuId = document.getElementById('skuId').value;
-        const description = document.getElementById('description').value;
 
-        if (!videoFile || !itemId) {
+        if (!files.length || !itemId) {
             showToast('请选择视频文件并关联商品', 'error');
             return;
         }
 
-        const formData = new FormData();
-        formData.append('video_file', videoFile);
-        formData.append('item_id', itemId);
-        formData.append('sku_id', skuId);
-        formData.append('description', description);
+        const progressBar = document.querySelector('#uploadProgress .bg-blue-500');
+        const progressContainer = document.getElementById('uploadProgress');
+        progressContainer.classList.remove('hidden');
 
-        try {
-            // 显示上传进度条
-            const progressBar = document.querySelector('#uploadProgress .bg-blue-500');
-            const progressContainer = document.getElementById('uploadProgress');
-            progressContainer.classList.remove('hidden');
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const formData = new FormData();
+            formData.append('video_files', file);
+            formData.append('item_id', itemId);
+            formData.append('sku_id', skuId);
 
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/admin/videos/publish/upload', true);
+            try {
+                await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/admin/videos/publish/upload', true);
 
-            // 处理上传进度
-            xhr.upload.onprogress = function (e) {
-                if (e.lengthComputable) {
-                    const percentComplete = (e.loaded / e.total) * 100;
-                    progressBar.style.width = percentComplete + '%';
-                }
-            };
+                    xhr.upload.onprogress = function (e) {
+                        if (e.lengthComputable) {
+                            const percentComplete = ((i + e.loaded / e.total) / files.length) * 100;
+                            progressBar.style.width = percentComplete + '%';
+                        }
+                    };
 
-            // 处理上传完成
-            xhr.onload = function () {
-                if (xhr.status === 200) {
-                    const response = JSON.parse(xhr.responseText);
-                    if (response.success) {
-                        showToast('上传成功', 'success');
-                        setTimeout(() => window.location.reload(), 2000);
-                    } else {
-                        showToast(response.message || '上传失败', 'error');
-                    }
-                } else {
-                    showToast(`上传失败: ${xhr.status}`, 'error');
-                }
-            };
+                    xhr.onload = function () {
+                        if (xhr.status === 200) {
+                            const response = JSON.parse(xhr.responseText);
+                            if (response.success) {
+                                resolve();
+                            } else {
+                                reject(new Error(response.message || '上传失败'));
+                            }
+                        } else {
+                            reject(new Error('上传失败: ' + xhr.status));
+                        }
+                    };
 
-            xhr.send(formData);
-        } catch (err) {
-            console.error('上传失败:', err);
-            showToast('上传失败', 'error');
-        } finally {
-            setTimeout(() => {
-                progressContainer.classList.add('hidden');
-                progressBar.style.width = '0%';
-            }, 2000);
+                    xhr.onerror = () => reject(new Error('网络错误'));
+
+                    xhr.send(formData);
+                });
+            } catch (err) {
+                console.error('上传失败:', err);
+                showToast(err.message, 'error');
+                // 继续上传剩余文件
+            }
         }
+
+        showToast('全部上传完成', 'success');
+        setTimeout(() => window.location.reload(), 2000);
+        progressContainer.classList.add('hidden');
+        progressBar.style.width = '0%';
     });
 
-    document.getElementById('videoFile').addEventListener('change', function (e) {
-        const file = e.target.files[0];
-        if (!file) return;
+    document.getElementById('videoFiles').addEventListener('change', function (e) {
+        const files = Array.from(e.target.files);
+        if (!files.length) return;
 
-        document.getElementById('fileName').textContent = file.name;
-        document.getElementById('fileSize').textContent = formatFileSize(file.size);
+        const listEl = document.getElementById('fileList');
+        listEl.innerHTML = '';
 
-        const videoPreview = document.getElementById('videoPreview');
-        videoPreview.innerHTML = '';
-        const video = document.createElement('video');
-        video.id = 'previewVideo';
-        video.src = URL.createObjectURL(file);
-        video.className = 'w-full h-full rounded-lg';
-        video.controls = true;
-        videoPreview.appendChild(video);
+        files.forEach((f, idx) => {
+            const li = document.createElement('li');
+            li.textContent = `${idx + 1}. ${f.name}`;
+            li.className = 'cursor-pointer hover:text-primary';
+            li.dataset.index = idx;
+            li.addEventListener('click', () => previewFile(f));
+            listEl.appendChild(li);
+        });
 
-        video.onloadedmetadata = function () {
-            document.getElementById('duration').textContent = formatDuration(video.duration);
-            document.getElementById('resolution').textContent = `${video.videoWidth}×${video.videoHeight}`;
-        };
+        previewFile(files[0]);
+
+        function previewFile(file) {
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = formatFileSize(file.size);
+
+            const videoPreview = document.getElementById('videoPreview');
+            videoPreview.innerHTML = '';
+            const video = document.createElement('video');
+            video.src = URL.createObjectURL(file);
+            video.className = 'w-full h-full rounded-lg';
+            video.controls = true;
+            videoPreview.appendChild(video);
+
+            video.onloadedmetadata = function () {
+                document.getElementById('duration').textContent = formatDuration(video.duration);
+                document.getElementById('resolution').textContent = `${video.videoWidth}×${video.videoHeight}`;
+            };
+        }
     });
 
     function formatFileSize(bytes) {
