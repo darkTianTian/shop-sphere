@@ -49,10 +49,11 @@ async def update_product_status(
 
 @router.get("/products", response_class=HTMLResponse)
 async def list_products(
-    request: Request, 
-    page: int = 1, 
-    search: str = '', 
+    request: Request,
+    page: int = 1,
+    search: str = '',
     item_id: str = '',
+    status: str | None = None,
     current_user: dict = Depends(require_admin())
 ):
     PAGE_SIZE = 20
@@ -63,14 +64,18 @@ async def list_products(
         query = select(Product)
         count_query = select(func.count(Product.id))
         
-        # 添加搜索条件
+        # 添加搜索及状态条件
         if item_id:
             query = query.where(Product.item_id == item_id)
             count_query = count_query.where(Product.item_id == item_id)
         elif search:
             query = query.where(Product.item_name.contains(search))
             count_query = count_query.where(Product.item_name.contains(search))
-            
+        
+        if status and status in [s.value for s in ProductStatus]:
+            query = query.where(Product.status == ProductStatus(status))
+            count_query = count_query.where(Product.status == ProductStatus(status))
+        
         # 获取总数
         total = session.exec(count_query).one()
         total_pages = max(math.ceil(total / PAGE_SIZE), 1)
@@ -112,6 +117,8 @@ async def list_products(
                 "has_next": page < total_pages,
                 "search": search,
                 "item_id": item_id,
+                "current_status": status or "",
+                "all_statuses": [s.value for s in ProductStatus],
             },
         )
 
