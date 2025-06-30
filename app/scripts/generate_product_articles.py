@@ -234,7 +234,7 @@ class ProductArticleGenerator:
         """
         try:
             # 使用超时保护，防止任务卡死
-            async with asyncio.timeout(300):  # 5分钟超时
+            async with asyncio.timeout(900):  # 15分钟超时
                 async with get_async_session() as session:
                     self.processed_count += 1
                     
