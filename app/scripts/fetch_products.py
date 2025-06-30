@@ -84,6 +84,7 @@ def save_result(result: dict, logger):
                     existing_product.buyable = product.buyable
                     existing_product.images = product.images
                     existing_product.deleted = product.deleted
+                    existing_product.total_stock = product.total_stock
                     logger.info(f"更新商品: {product.item_id}")
                     if not product.buyable:
                         existing_product.status = ProductStatus.UNMANAGED
