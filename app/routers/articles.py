@@ -85,6 +85,14 @@ async def list_articles(
                         "thumb_url": thumb_url
                     }
 
+        # 统计已发布与待发布数量
+        published_cnt = session.exec(
+            select(func.count()).select_from(ProductArticle).where(ProductArticle.status == ArticleStatus.PUBLISHED)
+        ).one()
+        pending_cnt = session.exec(
+            select(func.count()).select_from(ProductArticle).where(ProductArticle.status == ArticleStatus.PENDING_PUBLISH)
+        ).one()
+
         return templates.TemplateResponse(
             "admin/articles.html",
             {
@@ -102,6 +110,8 @@ async def list_articles(
                 "all_statuses": [s.value for s in ArticleStatus],
                 "sort": sort or "",
                 "dir": dir,
+                "published_cnt": published_cnt,
+                "pending_cnt": pending_cnt,
             },
         )
 

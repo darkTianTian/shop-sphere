@@ -5,7 +5,19 @@
 {% block content %}
 <div class="bg-white shadow overflow-hidden sm:rounded-lg">
     <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
-        <h3 class="text-lg leading-6 font-medium text-gray-900">文章管理</h3>
+        <div>
+            <h3 class="text-lg leading-6 font-medium text-gray-900">文章管理</h3>
+            <div class="mt-2 flex space-x-2">
+                <span
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold bg-green-100 text-green-800">
+                    已发布&nbsp;{{ published_cnt }}
+                </span>
+                <span
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-800">
+                    待发布&nbsp;{{ pending_cnt }}
+                </span>
+            </div>
+        </div>
         <div class="flex items-center space-x-4">
             <form method="get" action="/admin/articles" class="flex items-center space-x-2">
                 <label for="status" class="text-sm text-gray-600">状态</label>
