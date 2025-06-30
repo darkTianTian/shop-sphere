@@ -56,7 +56,7 @@ class SchedulerWorker:
                 time_diff = abs((current_time.hour * 60 + current_time.minute) - 
                               (generate_time.hour * 60 + generate_time.minute))
                 
-                if time_diff <= 5:  # 5分钟内
+                if time_diff <= 10:  # 5分钟内
                     logger.info(f"当前时间 {current_time} 接近生成时间 {generate_time}，开始执行生成任务")
                     await self.generator.run_generation_task()
                 else:
