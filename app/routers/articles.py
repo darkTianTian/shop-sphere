@@ -22,6 +22,7 @@ async def list_articles(
     request: Request,
     page: int = 1,
     status: str | None = None,
+    item_id: str | None = None,
     sort: str | None = None,
     dir: str = "desc",
     current_user: dict = Depends(require_admin()),
@@ -32,6 +33,9 @@ async def list_articles(
         base_query = select(ProductArticle)
         if status and status in [s.value for s in ArticleStatus]:
             base_query = base_query.where(ProductArticle.status == ArticleStatus(status))
+
+        if item_id:
+            base_query = base_query.where(ProductArticle.item_id == item_id)
 
         total = session.exec(select(func.count()).select_from(base_query.subquery())).one()
         total_pages = max(math.ceil(total / PAGE_SIZE), 1)
@@ -49,12 +53,18 @@ async def list_articles(
 
         articles = session.exec(base_query.order_by(order_exp).offset(offset_val).limit(PAGE_SIZE)).all()
         
-        # 获取商品信息
+        # 获取商品信息（当前页 + 过滤项）
         item_ids = [a.item_id for a in articles if a.item_id]
+        if item_id and item_id not in item_ids:
+            item_ids.append(item_id)
+
         product_map: dict[str, Product] = {}
+        selected_product = None
         if item_ids:
             products = session.exec(select(Product).where(Product.item_id.in_(item_ids))).all()
             product_map = {p.item_id: p for p in products}
+            if item_id:
+                selected_product = product_map.get(item_id)
         
         # 获取文章-视频关联信息
         article_ids = [a.id for a in articles]
@@ -107,6 +117,8 @@ async def list_articles(
                 "has_prev": page > 1,
                 "has_next": page < total_pages,
                 "current_status": status or "",
+                "current_item_id": item_id or "",
+                "selected_product": selected_product,
                 "all_statuses": [s.value for s in ArticleStatus],
                 "sort": sort or "",
                 "dir": dir,

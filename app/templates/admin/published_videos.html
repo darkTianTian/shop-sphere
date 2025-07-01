@@ -11,22 +11,25 @@
                 <input type="hidden" name="page" value="1">
 
                 <!-- 已选商品卡片 -->
-                <div id="filterSelectedProduct" class="hidden w-full" style="max-width:24rem;"
-                    onclick="toggleFilterDropdown()">
+                <div id="filterSelectedProduct" class="{% if current_item_id %}block{% else %}hidden{% endif %} w-full"
+                    style="max-width:24rem;" onclick="enterFilterSearchMode()">
                     <div class="flex shadow-sm ring-1 ring-gray-300 rounded-md bg-white w-full cursor-pointer">
                         <div class="flex-1 p-2 min-w-0">
                             <div class="flex items-center h-10">
                                 <div class="flex-shrink-0 h-10 w-10">
                                     <img id="filterSelectedProductImage"
                                         class="h-10 w-10 rounded-md object-cover ring-1 ring-gray-200"
-                                        src="/static/images/placeholder.png" alt="">
+                                        src="{{ (product_map[current_item_id].images[0].link ~ '?imageView2/2/w/160/format/webp/q/75') if current_item_id and product_map and current_item_id in product_map else '/static/images/placeholder.png' }}"
+                                        alt="">
                                 </div>
                                 <div class="ml-3 flex-1 min-w-0" style="max-width:16rem;">
                                     <div id="filterSelectedProductName"
-                                        class="text-sm font-medium text-gray-900 truncate"></div>
+                                        class="text-sm font-medium text-gray-900 truncate">{{
+                                        product_map[current_item_id].item_name if current_item_id and product_map and
+                                        current_item_id in product_map else '' }}</div>
                                     <div class="flex items-center text-xs text-gray-500 space-x-1">
                                         <span class="flex-shrink-0">ID:</span>
-                                        <span id="filterSelectedProductId" class="truncate"></span>
+                                        <span id="filterSelectedProductId" class="truncate">{{ current_item_id }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -44,7 +47,8 @@
 
                 <!-- 搜索输入框 -->
                 <div id="filterSearchInput" class="w-full {% if current_item_id %}hidden{% endif %}"
-                    style="max-width:24rem;" onclick="toggleFilterDropdown()">
+                    style="max-width:24rem;"
+                    onclick="showFilterDropdown(); document.getElementById('filterItemSearch').focus()">
                     <div
                         class="flex shadow-sm ring-1 ring-gray-300 rounded-md focus-within:ring-2 focus-within:ring-blue-500 cursor-pointer">
                         <div class="flex-1 p-2 min-w-0">
@@ -94,7 +98,7 @@
 
                 <!-- 下拉结果 -->
                 <div id="filterProductSearchResults"
-                    class="hidden absolute left-0 top-full mt-1 z-10 w-full bg-white rounded-md shadow-lg max-h-60 overflow-auto focus:outline-none ring-1 ring-black ring-opacity-5"
+                    class="hidden absolute left-0 top-full mt-1 z-50 w-full bg-white rounded-md shadow-lg max-h-60 overflow-auto focus:outline-none ring-1 ring-black ring-opacity-5"
                     style="max-width:24rem;"></div>
             </form>
             <button onclick="openUploadModal()"
@@ -230,7 +234,8 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ (v.duration // 1000) }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <button onclick="toggleStatus({{ v.id }}, {{ v.is_enabled|tojson }})"
+                                <button data-id="{{ v.id }}" data-enabled="{{ v.is_enabled|tojson }}"
+                                    onclick="toggleStatus(this.dataset.id, this.dataset.enabled === 'true')"
                                     class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer {% if v.is_enabled %}bg-green-100 text-green-800 hover:bg-green-200{% else %}bg-red-100 text-red-800 hover:bg-red-200{% endif %}">
                                     {{ '启用' if v.is_enabled else '禁用' }}
                                 </button>
@@ -938,5 +943,23 @@
             sr.classList.add('hidden');
         }
     });
+
+    // 进入搜索模式：隐藏已选卡片，显示搜索框并自动展开下拉
+    function enterFilterSearchMode() {
+        document.getElementById('filterSelectedProduct').classList.add('hidden');
+        const searchWrap = document.getElementById('filterSearchInput');
+        searchWrap.classList.remove('hidden');
+
+        const input = document.getElementById('filterItemSearch');
+        if (input) {
+            input.value = '';
+            input.focus();
+        }
+
+        // 清空隐藏字段，防止旧值立即提交
+        document.getElementById('filterItemId').value = '';
+
+        showFilterDropdown();
+    }
 </script>
 {% endblock %}

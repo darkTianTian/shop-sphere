@@ -3,7 +3,7 @@
 {% block title %}文章管理 - ShopSphere{% endblock %}
 
 {% block content %}
-<div class="bg-white shadow overflow-hidden sm:rounded-lg">
+<div class="bg-white shadow sm:rounded-lg overflow-visible">
     <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
         <div>
             <h3 class="text-lg leading-6 font-medium text-gray-900">文章管理</h3>
@@ -19,15 +19,100 @@
             </div>
         </div>
         <div class="flex items-center space-x-4">
-            <form method="get" action="/admin/articles" class="flex items-center space-x-2">
+            <form method="get" id="filterForm" action="/admin/articles" class="relative flex items-center space-x-2">
+                <input type="hidden" name="page" value="1">
+
+                <!-- 已选商品卡片 -->
+                <div id="filterSelectedProduct" class="{% if current_item_id %}block{% else %}hidden{% endif %} w-full"
+                    style="max-width:24rem;" onclick="enterFilterSearchMode()">
+                    <div class="flex shadow-sm ring-1 ring-gray-300 rounded-md bg-white w-full cursor-pointer">
+                        <div class="flex-1 p-2 min-w-0">
+                            <div class="flex items-center h-10">
+                                <div class="flex-shrink-0 h-10 w-10">
+                                    <img id="filterSelectedProductImage"
+                                        class="h-10 w-10 rounded-md object-cover ring-1 ring-gray-200"
+                                        src="{{ (selected_product.images[0].link ~ '?imageView2/2/w/160/format/webp/q/75') if selected_product and selected_product.images else '/static/images/placeholder.png' }}"
+                                        alt="">
+                                </div>
+                                <div class="ml-3 flex-1 min-w-0" style="max-width:16rem;">
+                                    <div id="filterSelectedProductName"
+                                        class="text-sm font-medium text-gray-900 truncate">{{ selected_product.item_name
+                                        if selected_product else '' }}</div>
+                                    <div class="flex items-center text-xs text-gray-500 space-x-1">
+                                        <span class="flex-shrink-0">ID:</span>
+                                        <span id="filterSelectedProductId" class="truncate">{{ current_item_id }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex-shrink-0 px-2 border-l border-gray-300 bg-gray-50 flex items-center">
+                            <svg class="h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                                fill="currentColor">
+                                <path fill-rule="evenodd"
+                                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 搜索输入框 -->
+                <div id="filterSearchInput" class="w-full {% if current_item_id %}hidden{% endif %}"
+                    style="max-width:24rem;"
+                    onclick="showFilterDropdown(); document.getElementById('filterItemSearch').focus()">
+                    <div
+                        class="flex shadow-sm ring-1 ring-gray-300 rounded-md focus-within:ring-2 focus-within:ring-primary cursor-pointer">
+                        <div class="flex-1 p-2 min-w-0">
+                            <div class="flex items-center h-10">
+                                <div class="flex-shrink-0 h-10 w-10 flex items-center justify-center">
+                                    <svg class="h-6 w-6 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                        viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <div class="ml-3 flex-1 min-w-0">
+                                    <input type="text" id="filterItemSearch" placeholder="搜索或选择商品..."
+                                        class="block w-full border-0 p-0 text-sm text-gray-900 placeholder-gray-500 focus:ring-0 focus:outline-none cursor-pointer"
+                                        autocomplete="off" onclick="event.stopPropagation()"
+                                        onfocus="showFilterDropdown()">
+                                    <div class="text-xs text-gray-400">点击选择或输入关键词搜索</div>
+                                </div>
+                                <div class="flex-shrink-0 ml-2 flex items-center">
+                                    <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd"
+                                            d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                                            clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 隐藏字段 -->
+                <input type="hidden" id="filterItemId" name="item_id" value="{{ current_item_id }}">
+
+                <!-- 状态 -->
                 <label for="status" class="text-sm text-gray-600">状态</label>
-                <select id="status" name="status" onchange="this.form.submit()"
+                <select id="status" name="status" onchange="document.getElementById('filterForm').submit()"
                     class="block w-44 pl-3 pr-8 py-2 text-sm bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:bg-white focus:ring-2 focus:ring-primary focus:border-primary cursor-pointer">
                     <option value="" {% if not current_status %}selected{% endif %}>全部</option>
                     {% for s in all_statuses %}
                     <option value="{{ s }}" {% if current_status==s %}selected{% endif %}>{{ s }}</option>
                     {% endfor %}
                 </select>
+                <button type="submit" class="px-2 py-1 bg-gray-100 rounded text-xs hover:bg-gray-200">筛选</button>
+                {% if current_item_id %}
+                <a href="/admin/articles{% if current_status %}?status={{ current_status }}{% endif %}"
+                    class="px-2 py-1 text-[11px] text-gray-500 hover:text-gray-700">清除</a>
+                {% endif %}
+
+                <!-- 下拉搜索结果 -->
+                <div id="filterProductSearchResults"
+                    class="hidden absolute left-0 top-full mt-1 z-50 w-full bg-white rounded-md shadow-lg max-h-60 overflow-auto focus:outline-none ring-1 ring-black ring-opacity-5"
+                    style="max-width:24rem;"></div>
             </form>
             <button id="bulkDeleteBtn" disabled
                 class="px-3 py-1.5 bg-red-500 text-white rounded shadow-sm opacity-50 cursor-not-allowed">批量删除</button>
@@ -48,7 +133,7 @@
                                             {% set dir_toggle = 'asc' if sort!='id' or dir=='desc' else 'desc' %}
                                             <th
                                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                <a href="?page=1{% if current_status %}&status={{current_status}}{% endif %}&sort=id&dir={{ dir_toggle }}"
+                                                <a href="?page=1{% if current_status %}&status={{current_status}}{% endif %}{% if current_item_id %}&item_id={{ current_item_id }}{% endif %}&sort=id&dir={{ dir_toggle }}"
                                                     class="flex items-center hover:text-primary">
                                                     ID
                                                     {% if sort=='id' %}
@@ -106,7 +191,7 @@
                                             'desc' %}
                                             <th
                                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                                                <a href="?page=1{% if current_status %}&status={{current_status}}{% endif %}&sort=pre_publish_time&dir={{ dir_pre }}"
+                                                <a href="?page=1{% if current_status %}&status={{current_status}}{% endif %}{% if current_item_id %}&item_id={{ current_item_id }}{% endif %}&sort=pre_publish_time&dir={{ dir_pre }}"
                                                     class="flex items-center hover:text-primary">预发布时间
                                                     {% if sort=='pre_publish_time' %}{% if dir=='asc' %}<svg
                                                         class="w-3 h-3 ml-1" fill="currentColor" viewBox="0 0 20 20">
@@ -120,7 +205,7 @@
                                             {% set dir_pub = 'asc' if sort!='publish_time' or dir=='desc' else 'desc' %}
                                             <th
                                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                                                <a href="?page=1{% if current_status %}&status={{current_status}}{% endif %}&sort=publish_time&dir={{ dir_pub }}"
+                                                <a href="?page=1{% if current_status %}&status={{current_status}}{% endif %}{% if current_item_id %}&item_id={{ current_item_id }}{% endif %}&sort=publish_time&dir={{ dir_pub }}"
                                                     class="flex items-center hover:text-primary">发布时间
                                                     {% if sort=='publish_time' %}{% if dir=='asc' %}<svg
                                                         class="w-3 h-3 ml-1" fill="currentColor" viewBox="0 0 20 20">
@@ -134,7 +219,7 @@
                                             {% set dir_create = 'asc' if sort!='create_at' or dir=='desc' else 'desc' %}
                                             <th
                                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                                                <a href="?page=1{% if current_status %}&status={{current_status}}{% endif %}&sort=create_at&dir={{ dir_create }}"
+                                                <a href="?page=1{% if current_status %}&status={{current_status}}{% endif %}{% if current_item_id %}&item_id={{ current_item_id }}{% endif %}&sort=create_at&dir={{ dir_create }}"
                                                     class="flex items-center hover:text-primary">创建时间
                                                     {% if sort=='create_at' %}{% if dir=='asc' %}<svg
                                                         class="w-3 h-3 ml-1" fill="currentColor" viewBox="0 0 20 20">
@@ -316,7 +401,7 @@
 <!-- 分页导航（固定底部） -->
 <div class="sticky bottom-0 left-0 w-full bg-white py-3 flex justify-center space-x-4 border-t shadow-inner z-30">
     {% if has_prev %}
-    <a href="?page={{ page-1 }}{% if current_status %}&status={{ current_status }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}{% if dir %}&dir={{ dir }}{% endif %}"
+    <a href="?page={{ page-1 }}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_item_id %}&item_id={{ current_item_id }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}{% if dir %}&dir={{ dir }}{% endif %}"
         class="w-20 text-center px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 text-sm">上一页</a>
     {% else %}
     <span class="w-20 text-center px-3 py-1 rounded bg-gray-50 text-gray-400 text-sm cursor-not-allowed">上一页</span>
@@ -325,7 +410,7 @@
     <span class="px-3 py-1 text-sm text-gray-600">第 {{ page }} / {{ total_pages }} 页</span>
 
     {% if has_next %}
-    <a href="?page={{ page+1 }}{% if current_status %}&status={{ current_status }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}{% if dir %}&dir={{ dir }}{% endif %}"
+    <a href="?page={{ page+1 }}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_item_id %}&item_id={{ current_item_id }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}{% if dir %}&dir={{ dir }}{% endif %}"
         class="w-20 text-center px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 text-sm">下一页</a>
     {% else %}
     <span class="w-20 text-center px-3 py-1 rounded bg-gray-50 text-gray-400 text-sm cursor-not-allowed">下一页</span>
@@ -613,6 +698,111 @@
             console.error('停止视频播放时出错:', e);
         }
     });
+</script>
+
+<!-- 商品筛选下拉脚本 -->
+<script>
+    let productList = [];
+    async function loadProductList() {
+        if (productList.length) return;
+        try {
+            const res = await fetch('/admin/products/list');
+            productList = await res.json();
+            window.productsList = productList;
+            window.dispatchEvent(new Event('productsLoaded'));
+        } catch (e) {
+            console.error('加载商品列表失败', e);
+        }
+    }
+
+    function toggleFilterDropdown() {
+        const results = document.getElementById('filterProductSearchResults');
+        results.classList.toggle('hidden');
+    }
+
+    async function showFilterDropdown() {
+        await loadProductList();
+        showFilterProductList(document.getElementById('filterItemSearch').value);
+    }
+
+    function showFilterProductList(searchTerm = '') {
+        const results = document.getElementById('filterProductSearchResults');
+        const filtered = window.productsList.filter(p =>
+            p.item_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.item_id.toString().includes(searchTerm)
+        );
+
+        results.innerHTML = filtered.map(p => `
+            <div class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-100"
+                 onclick="selectFilterProduct('${p.item_id}', '${p.item_name.replace(/'/g, "\\'")}', '${p.image_url || '/static/images/placeholder.png'}')">
+                <div class="flex items-center">
+                    <img src="${p.image_url || '/static/images/placeholder.png'}" class="h-10 w-10 flex-shrink-0 rounded object-cover">
+                    <div class="ml-3 flex-1 truncate">
+                        <div class="text-sm font-medium text-gray-900 truncate">${p.item_name}</div>
+                        <div class="text-sm text-gray-500">ID: ${p.item_id}</div>
+                    </div>
+                </div>
+            </div>`).join('') || '<div class="px-3 py-2 text-xs text-gray-400">无匹配商品</div>';
+
+        results.classList.remove('hidden');
+    }
+
+    function selectFilterProduct(id, name, img) {
+        document.getElementById('filterItemId').value = id;
+        document.getElementById('filterSelectedProductId').textContent = id;
+        document.getElementById('filterSelectedProductName').textContent = name;
+        const imgEl = document.getElementById('filterSelectedProductImage');
+        if (imgEl && img) imgEl.src = img;
+        document.getElementById('filterSearchInput').classList.add('hidden');
+        document.getElementById('filterSelectedProduct').classList.remove('hidden');
+        document.getElementById('filterProductSearchResults').classList.add('hidden');
+    }
+
+    const FILTER_CURRENT_ITEM_ID = "{{ current_item_id }}";
+    document.addEventListener('DOMContentLoaded', () => {
+        const input = document.getElementById('filterItemSearch');
+        if (input) {
+            input.addEventListener('input', (e) => {
+                showFilterProductList(e.target.value);
+            });
+        }
+        // 点击空白隐藏
+        document.addEventListener('click', (e) => {
+            const r = document.getElementById('filterProductSearchResults');
+            const s = document.getElementById('filterSearchInput');
+            if (!r.contains(e.target) && !s.contains(e.target)) {
+                r.classList.add('hidden');
+            }
+        });
+
+        // 等产品列表加载后呈现已选
+        window.addEventListener('productsLoaded', () => {
+            if (FILTER_CURRENT_ITEM_ID) {
+                const prod = window.productsList.find(p => p.item_id.toString() === FILTER_CURRENT_ITEM_ID);
+                if (prod) {
+                    selectFilterProduct(prod.item_id, prod.item_name, prod.image_url || '/static/images/placeholder.png');
+                }
+            }
+        });
+    });
+
+    // 进入搜索模式：隐藏已选卡片，展示搜索框并自动弹出下拉列表
+    function enterFilterSearchMode() {
+        document.getElementById('filterSelectedProduct').classList.add('hidden');
+        const searchInputWrap = document.getElementById('filterSearchInput');
+        searchInputWrap.classList.remove('hidden');
+
+        const input = document.getElementById('filterItemSearch');
+        if (input) {
+            input.value = '';
+            input.focus();
+        }
+
+        // 清空隐藏字段，防止旧值立即生效
+        document.getElementById('filterItemId').value = '';
+
+        showFilterDropdown();
+    }
 </script>
 {% endblock content %}
 
