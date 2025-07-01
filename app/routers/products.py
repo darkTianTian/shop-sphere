@@ -97,7 +97,7 @@ async def list_products(
         if item_ids:
             cnt_rows = session.exec(
                 select(Video.item_id, func.count())
-                .where(Video.item_id.in_(item_ids), Video.is_enabled == True)
+                .where(Video.item_id.in_(item_ids), Video.is_enabled == True, Video.publish_cnt == 0)
                 .group_by(Video.item_id)
             ).all()
             video_counts = {row[0]: row[1] for row in cnt_rows}
