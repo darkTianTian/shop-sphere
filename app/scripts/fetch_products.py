@@ -117,6 +117,8 @@ def fetch_products_task(product_service: ProductClient, logger):
         page_size = 20
         total_products = []
         total_pages = None
+        max_failures = 5  # 允许的连续失败次数
+        consecutive_failures = 0
         
         while True:
             # 搜索商品列表
@@ -132,9 +134,19 @@ def fetch_products_task(product_service: ProductClient, logger):
             # 检查响应是否成功
             if not response.get('success') or 'data' not in response:
                 logger.error(f"第 {page} 页请求失败")
+                consecutive_failures += 1
+                if consecutive_failures >= max_failures:
+                    logger.error(f"连续 {consecutive_failures} 页请求失败，终止任务")
+                    break
+                # 继续下一页，或也可以重试当前页；这里选择跳过当前页
                 page += 1
+                # 随机短暂休眠，避免瞬时连续请求
+                time.sleep(random.randint(1,3))
                 continue
-                
+            
+            # 成功获取后重置失败计数
+            consecutive_failures = 0
+            
             # 获取当前页的商品
             items = response['data'].get('items', [])
             if not items:
@@ -155,8 +167,8 @@ def fetch_products_task(product_service: ProductClient, logger):
                 break
                 
             page += 1
-            # 添加延迟，避免请求过于频繁
-            time.sleep(1)
+            # 添加随机延迟，避免请求过于频繁
+            time.sleep(random.randint(1, 3))
         
         # 打印结果摘要
         logger.info("\n=== 搜索结果 ===")
