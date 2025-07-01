@@ -64,7 +64,8 @@ class ProductArticleGenerator:
                 # 查询商品的所有的待发布视频id
                 pending_videos_query = select(Video.id).where(
                     Video.item_id == product.item_id,
-                    Video.is_enabled == True
+                    Video.is_enabled == True,
+                    Video.publish_cnt == 0
                 )
                 pending_videos = (await session.execute(pending_videos_query)).scalars().all()
                 if not pending_videos:
