@@ -122,7 +122,7 @@
         <div class="bg-white">
             <div class="max-w-7xl mx-auto">
                 <div class="flex flex-col">
-                    <div class="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                    <div class="overflow-x-auto">
                         <div class="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
                             <div class="overflow-hidden border-b border-gray-200">
                                 <table class="min-w-full divide-y divide-gray-200">
@@ -361,6 +361,9 @@
                                 {{ art.create_at|datetimeformat }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                {% set _status = art.status.value if art.status.__class__.__name__=='ArticleStatus' else
+                                art.status %}
+                                {% if _status != 'published' %}
                                 <a href="/admin/articles/{{ art.id }}/edit"
                                     class="inline-flex items-center px-2.5 py-0.5 mr-2 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium transition">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20"
@@ -373,6 +376,7 @@
                                     </svg>
                                     编辑
                                 </a>
+                                {% endif %}
                                 <button onclick="deleteArticle('{{ art.id }}')"
                                     class="inline-flex items-center px-2.5 py-0.5 rounded bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium transition">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20"

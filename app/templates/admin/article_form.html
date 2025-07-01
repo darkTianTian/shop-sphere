@@ -97,6 +97,45 @@
                 </div>
             </div>
 
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">关联视频</label>
+                <div class="relative">
+                    <!-- 已选视频卡片 -->
+                    <div id="selectedVideoCard"
+                        class="{% if current_video %}block{% else %}hidden{% endif %} w-full max-w-xs"
+                        onclick="enterVideoSearchMode()">
+                        <div class="flex shadow-sm ring-1 ring-gray-300 rounded-md bg-white cursor-pointer">
+                            <img id="selectedVideoThumb"
+                                src="{{ thumb_url if thumb_url else '/static/images/placeholder.png' }}"
+                                class="w-32 h-20 object-contain rounded-l-md bg-gray-100" alt="thumbnail">
+                            <div class="flex-1 p-2 text-xs text-gray-700 flex flex-col justify-center">
+                                <div>视频ID: <span id="selectedVideoId">{{ current_video.id if current_video else ''
+                                        }}</span></div>
+                                <div class="text-primary mt-1">点击更换</div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 搜索输入框 -->
+                    <div id="videoSearchInput" class="w-full {% if current_video %}hidden{% endif %}"
+                        onclick="openVideoDropdown(event)" onfocus="openVideoDropdown(event)">
+                        <div
+                            class="flex shadow-sm ring-1 ring-gray-300 rounded-md focus-within:ring-2 focus-within:ring-primary cursor-pointer">
+                            <input id="videoSearch" type="text" placeholder="搜索视频ID或商品ID..."
+                                class="flex-1 px-3 py-2 text-sm focus:outline-none" autocomplete="off"
+                                onclick="openVideoDropdown(event)" onfocus="openVideoDropdown(event)"
+                                onkeyup="openVideoDropdown(event)">
+                        </div>
+                    </div>
+                    <!-- 隐藏字段 -->
+                    <input type="hidden" name="video_id" id="videoIdInput"
+                        value="{{ current_video.id if current_video else '' }}">
+                    <!-- 下拉列表 -->
+                    <div id="videoDropdown"
+                        class="hidden absolute left-0 top-full mt-1 z-50 w-full max-w-md bg-white rounded-md shadow-lg max-h-96 overflow-auto ring-1 ring-black ring-opacity-5 grid grid-cols-2 gap-3 p-3">
+                    </div>
+                </div>
+            </div>
+
             <div class="flex justify-end space-x-4">
                 <a href="/admin/articles"
                     class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
@@ -227,6 +266,70 @@
         if (timestamp > 0) {
             prePublishTimeInput.value = timestampToDatetimeLocal(timestamp);
         }
+    }
+
+    // ------------- 视频选择逻辑 -------------
+    const ARTICLE_ITEM_ID = "{{ article.item_id }}";
+    let videoList = [];
+    async function loadVideoList() {
+        if (videoList.length) return videoList;  // 保证返回 Promise
+        const url = ARTICLE_ITEM_ID ? `/admin/videos/published/list?item_id=${encodeURIComponent(ARTICLE_ITEM_ID)}` : '/admin/videos/published/list';
+        const res = await fetch(url);
+        videoList = await res.json();
+        return videoList;
+    }
+    async function showVideoDropdown(keyword = '') {
+        await loadVideoList();
+        const list = videoList.filter(v => v.id.toString().includes(keyword) || v.item_id.includes(keyword));
+        const dropdown = document.getElementById('videoDropdown');
+        dropdown.innerHTML = list.map(v => `<div class='flex flex-col items-center justify-center p-2 hover:bg-gray-100 cursor-pointer rounded' onclick=\"selectVideo(${v.id}, '${v.thumb_url}')\"><img src='${v.thumb_url}' class='w-24 h-16 object-contain rounded bg-gray-50 mb-1'><span class='text-xs text-center'>ID: ${v.id}</span></div>`).join('') || '<div class=\"px-3 py-2 text-xs text-gray-400 col-span-2\">无匹配视频</div>';
+
+        // 位置调整：如果下方空间不足，则显示在输入框上方
+        const inputEl = document.getElementById('videoSearchInput');
+        const rect = inputEl.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const DROPDOWN_HEIGHT = 384; // 与 max-h-96 相同
+        if (spaceBelow < DROPDOWN_HEIGHT) {
+            dropdown.style.top = 'auto';
+            dropdown.style.bottom = '100%';
+        } else {
+            dropdown.style.bottom = 'auto';
+            dropdown.style.top = '100%';
+        }
+
+        dropdown.classList.remove('hidden');
+    }
+    function selectVideo(id, thumb) {
+        document.getElementById('videoIdInput').value = id;
+        document.getElementById('selectedVideoId').textContent = id;
+        document.getElementById('selectedVideoThumb').src = thumb || '/static/images/placeholder.png';
+        document.getElementById('selectedVideoCard').classList.remove('hidden');
+        document.getElementById('videoSearchInput').classList.add('hidden');
+        document.getElementById('videoDropdown').classList.add('hidden');
+    }
+    function enterVideoSearchMode() {
+        document.getElementById('selectedVideoCard').classList.add('hidden');
+        document.getElementById('videoSearchInput').classList.remove('hidden');
+        document.getElementById('videoIdInput').value = '';
+        showVideoDropdown('');
+        document.getElementById('videoSearch').value = '';
+        document.getElementById('videoSearch').focus();
+    }
+    // input event
+    const vs = document.getElementById('videoSearch');
+    if (vs) { vs.addEventListener('input', e => showVideoDropdown(e.target.value)); }
+    // click outside to close
+    document.addEventListener('click', e => {
+        const d = document.getElementById('videoDropdown');
+        const s = document.getElementById('videoSearchInput');
+        if (!d.contains(e.target) && !s.contains(e.target)) d.classList.add('hidden');
+    });
+
+    // 统一入口函数
+    function openVideoDropdown(evt) {
+        evt.stopPropagation();
+        const kw = evt.target.value || '';
+        showVideoDropdown(kw);
     }
 </script>
 {% endblock %}

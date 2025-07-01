@@ -135,6 +135,19 @@ async def edit_article_form(article_id: int, request: Request, current_user: dic
         if not article:
             raise HTTPException(status_code=404, detail="文章不存在")
         
+        # 获取当前关联视频（如果有）
+        mapping = session.exec(select(ArticleVideoMapping).where(ArticleVideoMapping.article_id == article_id)).first()
+        current_video = None
+        thumb_url = ""
+        if mapping:
+            video = session.get(Video, mapping.video_id)
+            if video:
+                current_video = video
+                oss_service = OSSService()
+                if oss_service.is_available():
+                    style = "video/snapshot,t_1000,f_jpg,w_320,m_fast"
+                    thumb_url = oss_service.bucket.sign_url("GET", video.oss_object_key, 3600, params={"x-oss-process": style})
+        
         # 过滤掉 published 状态
         available_statuses = [s.value for s in ArticleStatus if s != ArticleStatus.PUBLISHED]
         
@@ -144,7 +157,9 @@ async def edit_article_form(article_id: int, request: Request, current_user: dic
                 "request": request, 
                 "user": current_user, 
                 "article": article, 
-                "statuses": available_statuses
+                "statuses": available_statuses,
+                "current_video": current_video,
+                "thumb_url": thumb_url
             }
         )
 
@@ -187,6 +202,32 @@ async def edit_article(article_id: int, request: Request, current_user: dict = D
                 raise HTTPException(status_code=400, detail="无效的状态值")
                 
         article.update_at = int(datetime.utcnow().timestamp() * 1000)
+        session.commit()
+        
+        # 处理视频关联
+        video_id_str = form_data.get("video_id", "").strip()
+        mapping = session.exec(select(ArticleVideoMapping).where(ArticleVideoMapping.article_id == article_id)).first()
+
+        if video_id_str:
+            try:
+                video_id = int(video_id_str)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="无效的视频ID")
+
+            video_obj = session.get(Video, video_id)
+            if not video_obj:
+                raise HTTPException(status_code=404, detail="视频不存在")
+
+            if mapping:
+                mapping.video_id = video_id
+            else:
+                mapping = ArticleVideoMapping(article_id=article_id, video_id=video_id)
+                session.add(mapping)
+        else:
+            # 如果没传 video_id 且存在映射，删除映射
+            if mapping:
+                session.delete(mapping)
+
         session.commit()
         
     return RedirectResponse(url="/admin/articles", status_code=302)

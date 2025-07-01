@@ -477,3 +477,27 @@ async def play_published_video(video_id: int, current_user: dict = Depends(requi
             'GET', v.oss_object_key, expires=3600
         )
         return {"url": signed_url}
+
+@router.get("/published/list")
+async def list_published_videos_json(item_id: str | None = None, current_user: dict = Depends(require_admin())):
+    """返回已发布视频简要列表，用于下拉选择"""
+    with Session(engine) as session:
+        query = select(Video)
+        if item_id:
+            query = query.where(Video.item_id == item_id, Video.is_enabled == True, Video.publish_cnt == 0)
+        videos = session.exec(query.limit(500)).all()
+
+        oss_ok = oss_service.is_available()
+        result = []
+        for v in videos:
+            thumb = ""
+            if oss_ok:
+                style = "video/snapshot,t_1000,f_jpg,w_160,m_fast"
+                thumb = oss_service.bucket.sign_url("GET", v.oss_object_key, 3600, params={"x-oss-process": style})
+            result.append({
+                "id": v.id,
+                "item_id": v.item_id,
+                "thumb_url": thumb,
+                "is_enabled": v.is_enabled,
+            })
+        return result
