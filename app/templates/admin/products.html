@@ -106,7 +106,7 @@
                                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                 库存
                                             </th>
-                                            <th scope="col"
+                                            <th scope="col" style="width:140px;"
                                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                                                 <div class="inline-flex items-center relative group">
                                                     可用视频
@@ -224,7 +224,7 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{
                                 video_counts.get(product.item_id, 0) }}</td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <select onchange="updateStatus('{{ product.id }}', this.value)" class="block w-full pl-3 pr-10 py-2 text-sm font-medium rounded-md border-2 transition-colors
+                                <select onchange="updateStatus('{{ product.id }}', this.value)" class="block w-32 pl-3 pr-10 py-2 text-sm font-medium rounded-md border-2 transition-colors
                                     {% if product.status == 'managed' %}
                                         text-green-700 bg-green-50 border-green-200 hover:border-green-300
                                     {% elif product.status == 'unmanaged' %}
